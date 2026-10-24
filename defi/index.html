@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#0b1024" />
+    <meta name="description" content="Un mini jeu spatial à jouer partout, même hors ligne." />
+    <title>Cosmo Dash — le défi des étoiles</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  </head>
+  <body>
+    <main class="page-shell">
+      <header class="topbar">
+        <a class="brand" href="./" aria-label="Cosmo Dash accueil"><span class="brand-mark">✦</span> COSMO<span class="brand-light">DASH</span></a>
+        <span class="edition"><i></i> MINI JEU · N° 001</span>
+      </header>
+
+      <section class="game-layout" aria-label="Jeu Cosmo Dash">
+        <div class="game-column">
+          <div class="game-frame">
+            <div id="game" aria-label="Zone de jeu, récupère les étoiles en évitant les astéroïdes"></div>
+            <section class="game-overlay" id="overlay" aria-live="polite">
+              <div class="overlay-card">
+                <span class="eyebrow" id="overlay-eyebrow">MISSION 01 · ORBITE LIBRE</span>
+                <div class="overlay-icon" id="overlay-icon">✦</div>
+                <h1 id="overlay-title">La chasse<br /><em>aux étoiles</em></h1>
+                <p id="overlay-copy">Récupère 8 étoiles avant la fin du chrono.<br />Évite les astéroïdes, pilote avec précision.</p>
+                <button class="primary-button" id="start-button">Lancer la mission <span>↗</span></button>
+                <span class="overlay-hint">45 SECONDES · 3 VIES · 8 ÉTOILES</span>
+              </div>
+            </section>
+            <div class="hud" id="hud" aria-hidden="true">
+              <div class="hud-chip"><span class="hud-label">ÉTOILES</span><strong id="score">00 <small>/ 08</small></strong></div>
+              <div class="hud-chip timer-chip"><span class="hud-label">TEMPS</span><strong id="timer">45<span>s</span></strong></div>
+              <div class="hud-chip lives-chip"><span class="hud-label">ÉNERGIE</span><strong id="lives">♥ ♥ ♥</strong></div>
+            </div>
+          </div>
+          <div class="mobile-controls" aria-label="Commandes tactiles">
+            <div class="dpad">
+              <button class="pad-button pad-up" data-dir="up" aria-label="Aller vers le haut">▲</button>
+              <button class="pad-button pad-left" data-dir="left" aria-label="Aller à gauche">◀</button>
+              <button class="pad-button pad-down" data-dir="down" aria-label="Aller vers le bas">▼</button>
+              <button class="pad-button pad-right" data-dir="right" aria-label="Aller à droite">▶</button>
+            </div>
+            <span>MAINTIENS POUR PILOTER</span>
+          </div>
+        </div>
+
+        <aside class="side-panel">
+          <div class="panel-section mission-number"><span>TON OBJECTIF</span><strong>01<span> / 01</span></strong></div>
+          <div class="panel-section"><span class="section-label">LA MISSION</span><h2>Une petite balade<br />dans le cosmos.</h2><p>Ton vaisseau a repéré un champ d’étoiles scintillantes. Fais le plein avant que le portail ne se referme.</p></div>
+          <div class="panel-section controls-section"><span class="section-label">COMMANDES</span><div class="key-row"><span class="keycap">↑</span><span class="keycap">←</span><span class="keycap">↓</span><span class="keycap">→</span><span class="key-description">ou <b>ZQSD</b></span></div><div class="key-row"><span class="touch-icon">✳</span><span class="key-description">Boutons tactiles sur mobile</span></div></div>
+          <div class="panel-section objective"><span class="section-label">À RAMENER</span><div class="objective-row"><span>✦</span><strong>8 étoiles</strong><small>pour réussir</small></div><div class="objective-row"><span class="rock-icon">◈</span><strong>Astéroïdes</strong><small>à éviter !</small></div></div>
+          <div class="panel-footer"><span class="status-dot"></span> PRÊT À JOUER <span class="footer-version">v0.1</span></div>
+        </aside>
+      </section>
+
+      <footer class="bottom-bar"><span>UN PETIT JEU, UN GRAND UNIVERS.</span><span>FAIT POUR EXPLORER <b>✦</b></span></footer>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
