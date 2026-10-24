@@ -1,0 +1,6 @@
+interface:
+  display_name: "PWA GitHub Pages"
+  short_description: "Offline, mises à jour et livraison GitHub Pages"
+  default_prompt: "Utilise $pwa-github-pages pour préparer et vérifier le build PWA de ce jeu et son workflow GitHub Pages."
+policy:
+  allow_implicit_invocation: true

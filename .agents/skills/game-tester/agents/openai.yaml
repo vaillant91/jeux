@@ -1,0 +1,6 @@
+interface:
+  display_name: "Game Tester"
+  short_description: "Tests Vitest et recette navigateur des jeux"
+  default_prompt: "Utilise $game-tester pour reproduire ce bug, le corriger et vérifier la régression au niveau adapté."
+policy:
+  allow_implicit_invocation: true

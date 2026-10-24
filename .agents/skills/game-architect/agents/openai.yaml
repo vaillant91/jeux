@@ -1,0 +1,6 @@
+interface:
+  display_name: "Game Architect"
+  short_description: "Conception et architecture légère des jeux Phaser"
+  default_prompt: "Utilise $game-architect pour cadrer et réaliser une première tranche jouable de mon jeu TypeScript et Phaser 4."
+policy:
+  allow_implicit_invocation: true
