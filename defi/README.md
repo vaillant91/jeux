@@ -1,50 +1,59 @@
-# Cosmo Dash
+# Défi ton pote
 
-Un petit jeu d’arcade spatial fait pour découvrir la création de jeux avec **TypeScript, Phaser 4 et Vite**. La mission : ramasser 8 étoiles en 45 secondes, tout en évitant les astéroïdes. Une partie se joue au clavier (flèches ou ZQSD) ou avec les boutons tactiles.
+Portage de `../defi_ton_pote.py` en TypeScript strict, Phaser **4.2.1**, Vite, Vitest et vite-plugin-pwa. La campagne et la carte de démonstration reproduisent les données Python à l’identique. L’arcade conserve ses codes et son générateur CPython. L’éditeur importe P1/P2/P3/P4 et exporte P4.
 
-## Jouer en local
+- Arcade : survivre 45 secondes, collecter des fragments, esquiver et battre son record.
+- Parcours : 12 niveaux, trois vies, checkpoints, gemmes, cœurs, ressorts et monstres patrouilleurs.
+- Atelier : cartes 40 × 11, quatre biomes, peinture, gomme, annulation/rétablissement, bibliothèque locale, test et partage.
+- Clavier : flèches, ZQSD ou WASD ; Espace pour sauter/esquiver ; Maj pour courir ; P/Échap pour mettre en pause. Les boutons tactiles offrent les mêmes actions. La perte de focus met la partie en pause.
 
-Prérequis : Node.js 22 LTS (ou une version récente compatible avec Vite) et npm.
+## Démarrer
 
-Depuis ce dossier (`defi`) :
+Depuis ce dossier, avec Node indiqué dans `.nvmrc` :
 
-```bash
-npm install
+```powershell
+npm ci
 npm run dev
 ```
 
-Vite affiche l’adresse locale à ouvrir, en général <http://localhost:5173>. Les modifications de code sont rechargées automatiquement.
+## Vérifier
 
-Pour générer puis inspecter la version de production :
-
-```bash
+```powershell
+npm run typecheck
+npm run test:run
+$env:PAGES_BASE_PATH='/jeux/'
 npm run build
-npm run preview
+npm run preview -- --host 127.0.0.1 --port 4174 --strictPort
 ```
 
-Les fichiers optimisés sont créés dans `dist/`. La PWA et son cache hors ligne sont générés pendant le build. Pour vérifier le mode PWA localement, lance `npm run build`, puis `npm run preview` et ouvre l’adresse indiquée. Il faut visiter le site une première fois en ligne pour installer le service worker ; après son activation, les fichiers du jeu restent disponibles hors connexion. Le navigateur doit servir le jeu en HTTPS ou depuis `localhost` pour autoriser l’installation PWA.
+Dans un autre terminal, avec Chrome installé :
 
-## Tests
-
-```bash
-npm test
-npm run test:watch
+```powershell
+npm run test:browser
+npm run test:update
 ```
 
-Les règles indépendantes de Phaser sont testées avec Vitest.
+Le runner utilise Playwright avec le navigateur Chrome local par défaut. Pour utiliser Chromium fourni par Playwright : `npx playwright install chromium`, puis définir `BROWSER_CHANNEL=chromium`. `TEST_BASE_URL` permet de changer `http://127.0.0.1:4174/jeux/`. Le test de mise à jour recompilé attend aussi un serveur preview sur cette base ; il modifie temporairement le titre HTML puis restaure source et build dans un bloc `finally`. Ne pas modifier `index.html` simultanément à ce test. Les captures vont dans `test-results/` (ignoré par Git).
 
-## Déploiement GitHub Pages
+Les tests unitaires couvrent parité Python, formats de codes, génération, validation, physique, fin de partie, score, aléatoire et stockage. Les fixtures peuvent être régénérées avec `python scripts/python-fixtures.py`, sans installation de Pygame. Les icônes PNG sont générables par `python scripts/icons.py` sans bibliothèque tierce.
 
-Le workflow [`../.github/workflows/deploy-defi.yml`](../.github/workflows/deploy-defi.yml) installe les dépendances, construit le site, puis publie `dist/` sur GitHub Pages à chaque push sur `main` qui modifie `defi/`. Il est aussi lançable manuellement depuis l’onglet **Actions**.
+## PWA et GitHub Pages
 
-Dans les paramètres du dépôt GitHub, ouvrir **Settings → Pages**, puis sélectionner **GitHub Actions** comme source de déploiement. Pour ce dépôt, l’adresse attendue est <https://vaillant91.github.io/jeux/>. La base Vite `/jeux/` n’est activée que dans GitHub Actions ; en local, le jeu reste servi à la racine.
+Le chemin Pages existant est `/jeux/`. La configuration `PAGES_BASE_PATH` accepte `/` ou un chemin absolu terminé par `/`. En développement le défaut est `/`. Pour le dépôt actuel, le workflow `.github/workflows/deploy-defi.yml` utilise `/jeux/`, remplaçable par une variable GitHub du même nom.
 
-## Organisation
+Le manifest et le service worker partagent cette base. Tous les éléments nécessaires aux parties et à l’éditeur sont précachés. Le bouton de mise à jour demande de quitter la partie avant activation ; une partie n’est pas rechargée automatiquement. Le stockage et les caches du navigateur peuvent être effacés par l’utilisateur ou le système : exporter les codes importants.
 
-- `src/main.ts` : scène Phaser, commandes, score, chrono et collisions.
-- `src/game/rules.ts` : règles réutilisables et indépendantes du moteur.
-- `src/style.css` : interface adaptative PC/tablette/mobile.
-- `vite.config.ts` : build Vite et génération du manifeste/service worker par `vite-plugin-pwa`.
-- `public/` : icônes du jeu et de la PWA.
+Le workflow valide les PR sans publier. Un push sur `main` ou un lancement manuel sur `main` valide puis déploie le même artefact avec GitHub Pages. Régler **Settings → Pages → Source → GitHub Actions** dans le dépôt. Le workflow est préparé ; aucun déploiement n’est annoncé sans exécution réussie.
 
-Le jeu ne possède pas de backend et ne charge aucun contenu de jeu depuis un service externe. Le rendu et les contrôles fonctionnent entièrement dans le navigateur.
+## Sources et limites
+
+- `src/game/levels.ts` : génération, validation, édition.
+- `src/game/codec.ts` : protocole zlib/base64 P1–P4 borné.
+- `src/game/random.ts` : MT19937 compatible CPython, codes et défi quotidien.
+- `src/game/platform.ts` et `arcade.ts` : simulations indépendantes du moteur.
+- `src/main.ts` : rendu Phaser, menus DOM, entrées, navigation et enregistrement PWA.
+- `src/storage.ts` : bibliothèque/records versionnés et gestion des erreurs.
+- [Analyse détaillée du Python](docs/PYTHON_ANALYSIS.md).
+- [Résultats et limites de validation](docs/VALIDATION.md).
+
+Les visuels sont redessinés dans Phaser. Le jeu externe `cache_cache_3d.py`, lancé par le menu Python, n’est pas inclus. Les variantes de monstres seulement esquissées dans le Python ne sont pas présentées comme jouables. Le pas fixe et les positions flottantes améliorent l’indépendance à la fréquence d’affichage ; le rendu et les trajectoires ne sont pas garantis identiques à Pygame frame par frame.

@@ -1,0 +1,6 @@
+interface:
+  display_name: "Phaser Developer"
+  short_description: "Gameplay Phaser 4, contrôles et performance mobile"
+  default_prompt: "Utilise $phaser-developer pour implémenter cette mécanique Phaser 4 et vérifier son fonctionnement dans le navigateur."
+policy:
+  allow_implicit_invocation: true

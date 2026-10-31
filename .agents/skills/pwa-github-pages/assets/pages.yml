@@ -1,0 +1,67 @@
+# Modèle à copier/adap­ter dans .github/workflows/pages.yml du JEU.
+# Prérequis : main, npm lockfile, .nvmrc, scripts typecheck/test:run/build.
+# Définir vars.PAGES_BASE_PATH et lire cette variable dans vite.config.ts.
+# Vérifier les SHA/versions d'actions avant de réutiliser ce modèle.
+name: Check and deploy game
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages-${{ github.event_name == 'pull_request' && github.ref || 'production' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  check-build:
+    runs-on: ubuntu-latest
+    env:
+      PAGES_BASE_PATH: ${{ vars.PAGES_BASE_PATH }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Validate deployment base
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          const base = process.env.PAGES_BASE_PATH;
+          if (!base || !/^\/(?:[A-Za-z0-9_-]+\/)*$/.test(base)) {
+            throw new Error('Set PAGES_BASE_PATH to / or /repository-name/; adapt validation for other valid paths.');
+          }
+          NODE
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run test:run
+      - run: npm run build
+      # Ajouter ici les tests du build en navigateur si configurés.
+      - name: Configure Pages
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6
+      - name: Upload verified build
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5
+        with:
+          path: dist
+
+  deploy:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: check-build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5
