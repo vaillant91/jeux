@@ -592,3 +592,326 @@ def boucle():
 
 if __name__ == "__main__":
     boucle()
+import math
+import random
+import pygame
+
+pygame.init()
+pygame.display.set_caption("Unicorn Turbo - La course arc-en-ciel")
+W, H = 1100, 700
+screen = pygame.display.set_mode((W, H))
+clock = pygame.time.Clock()
+FPS = 60
+
+# Palette
+SKY_TOP = (93, 168, 255)
+SKY_BOTTOM = (255, 198, 229)
+WHITE = (255, 250, 255)
+INK = (68, 50, 105)
+PINK = (255, 104, 190)
+PURPLE = (153, 100, 255)
+CYAN = (92, 235, 255)
+GOLD = (255, 211, 92)
+ROAD = (69, 69, 112)
+ROAD_EDGE = (255, 117, 205)
+GRASS = (83, 205, 143)
+
+font = pygame.font.SysFont("arial", 22, bold=True)
+small = pygame.font.SysFont("arial", 16, bold=True)
+big = pygame.font.SysFont("arial", 54, bold=True)
+
+def draw_text(text, x, y, f=font, color=WHITE, center=False):
+    img = f.render(text, True, INK)
+    rect = img.get_rect()
+    if center:
+        rect.center = (x+2, y+3)
+    else:
+        rect.topleft = (x+2, y+3)
+    screen.blit(img, rect)
+    img2 = f.render(text, True, color)
+    rect2 = img2.get_rect()
+    if center:
+        rect2.center = (x, y)
+    else:
+        rect2.topleft = (x, y)
+    screen.blit(img2, rect2)
+
+def gradient_sky():
+    for y in range(H):
+        t = y / H
+        col = (int(SKY_TOP[0]*(1-t)+SKY_BOTTOM[0]*t),
+               int(SKY_TOP[1]*(1-t)+SKY_BOTTOM[1]*t),
+               int(SKY_TOP[2]*(1-t)+SKY_BOTTOM[2]*t))
+        pygame.draw.line(screen, col, (0,y), (W,y))
+    # Puffy clouds
+    for cx, cy, s in clouds:
+        for ox, oy, r in [(-35,4,25),(-10,-8,31),(20,0,27),(43,8,20)]:
+            pygame.draw.circle(screen, (255,255,255), (cx+ox*s,cy+oy*s), int(r*s))
+            pygame.draw.circle(screen, (255,235,250), (cx+ox*s,cy+oy*s), int(r*s), 2)
+    # Rainbow
+    rainbow = pygame.Surface((420, 220), pygame.SRCALPHA)
+    colors = [(255,92,135,210),(255,177,82,210),(255,237,100,210),
+              (100,231,151,210),(89,203,255,210),(164,126,255,210)]
+    for i,c in enumerate(colors):
+        pygame.draw.arc(rainbow, c, (i*8, i*8, 400-i*16, 400-i*16), math.pi, math.tau, 12)
+    screen.blit(rainbow, (625, -110))
+    # distant candy hills
+    pygame.draw.ellipse(screen, (173, 222, 255), (-120, 230, 530, 230))
+    pygame.draw.ellipse(screen, (255, 174, 220), (270, 250, 530, 190))
+    pygame.draw.ellipse(screen, (176, 245, 202), (650, 225, 600, 240))
+
+def draw_tree(x, y, scale=1):
+    # candy tree
+    pygame.draw.rect(screen, (151, 94, 116), (int(x-7*scale), int(y), int(14*scale), int(38*scale)), border_radius=5)
+    for ox, oy, r, c in [(-15,-5,19,(255,135,207)),(3,-18,23,(255,183,225)),(20,-3,17,(218,132,255))]:
+        pygame.draw.circle(screen, c, (int(x+ox*scale),int(y+oy*scale)), int(r*scale))
+        pygame.draw.circle(screen, (255,220,245), (int(x+ox*scale),int(y+oy*scale)), int(r*scale), max(1,int(2*scale)))
+
+def draw_road(offset):
+    # Grass and sparkling roadside
+    screen.fill(GRASS, (0, 350, W, H-350))
+    # patterned grass
+    for i in range(45):
+        x = (i*97 + int(offset*0.4)) % W
+        y = 380 + (i*47)%300
+        pygame.draw.circle(screen, random.choice([(255,255,255),(255,231,112),(255,126,209)]), (x,y), 2)
+    # road polygon, perspective-ish but arcade readable
+    road_poly = [(330, H), (770, H), (690, 325), (410, 325)]
+    pygame.draw.polygon(screen, ROAD_EDGE, [(310,H),(790,H),(708,315),(392,315)])
+    pygame.draw.polygon(screen, ROAD, road_poly)
+    # road edge dashed shine
+    for y in range(350, H, 56):
+        yy = (y + int(offset*1.4)) % (H-330) + 330
+        # road lanes
+        pygame.draw.rect(screen, (255,255,255), (548, yy, 7, 25), border_radius=3)
+        # little edge glows
+        pygame.draw.circle(screen, (255,220,249), (int(415+(yy-330)*0.12), yy), 3)
+        pygame.draw.circle(screen, (255,220,249), (int(685-(yy-330)*0.12), yy), 3)
+    # roadside candy trees / lollipop signs
+    for i in range(7):
+        yy = (i*125 + int(offset*1.0)) % 800 - 50
+        scale = 0.55 + (yy+50)/900
+        leftx = 250 - int((yy-300)*0.13)
+        rightx = 850 + int((yy-300)*0.13)
+        draw_tree(leftx, yy, scale)
+        draw_tree(rightx, yy, scale)
+
+def draw_unicorn_car(x, y, t, boost=False):
+    # shadow
+    pygame.draw.ellipse(screen, (43,47,95), (x-49,y+35,98,25))
+    # boost trail
+    if boost:
+        for i in range(5):
+            yy = y + 38 + i*10
+            pygame.draw.polygon(screen, random.choice([(255,130,215),(104,224,255),(255,226,105)]),
+                                [(x-15,yy),(x+15,yy),(x,yy+random.randint(12,24))])
+    # wheels
+    for wx in (x-38,x+38):
+        pygame.draw.ellipse(screen,(40,36,65),(wx-11,y+12,22,35))
+        pygame.draw.ellipse(screen,(175,190,220),(wx-5,y+19,10,20))
+    # car body silhouette
+    pygame.draw.ellipse(screen,(246,83,177),(x-49,y-17,98,72))
+    pygame.draw.ellipse(screen,(255,165,222),(x-42,y-20,84,55))
+    pygame.draw.polygon(screen,(255,123,199),[(x-39,y+18),(x-32,y-24),(x-13,y-39),(x+14,y-39),(x+34,y-21),(x+41,y+18)])
+    # windshield
+    pygame.draw.polygon(screen,(120,218,255),[(x-25,y-22),(x-11,y-34),(x+11,y-34),(x+25,y-22)])
+    pygame.draw.line(screen,(225,255,255),(x-17,y-25),(x-8,y-32),3)
+    # headlights
+    pygame.draw.ellipse(screen,(255,250,167),(x-37,y+9,15,9))
+    pygame.draw.ellipse(screen,(255,250,167),(x+22,y+9,15,9))
+    # unicorn ears
+    pygame.draw.polygon(screen,(255,207,231),[(x-24,y-36),(x-31,y-53),(x-12,y-42)])
+    pygame.draw.polygon(screen,(255,207,231),[(x+24,y-36),(x+31,y-53),(x+12,y-42)])
+    # horn
+    pygame.draw.polygon(screen,(255,218,93),[(x-7,y-42),(x,y-72),(x+7,y-42)])
+    pygame.draw.line(screen,(255,249,183),(x-2,y-50),(x+1,y-61),2)
+    # mane
+    for i,c in enumerate([(255,115,198),(177,116,255),(94,224,255),(255,226,115)]):
+        pygame.draw.arc(screen,c,(x-27+i*4,y-47+i*2,54-i*8,28),math.pi,math.tau,5)
+    # eyes / cheeks
+    pygame.draw.circle(screen,(75,50,95),(x-16,y-13),3)
+    pygame.draw.circle(screen,(75,50,95),(x+16,y-13),3)
+    pygame.draw.circle(screen,(255,113,169),(x-25,y-5),5)
+    pygame.draw.circle(screen,(255,113,169),(x+25,y-5),5)
+    # sparkle emblem
+    pygame.draw.circle(screen,(255,250,255),(x,y+8),9)
+    pygame.draw.polygon(screen,GOLD,[(x,y-1),(x+3,y+6),(x+10,y+8),(x+3,y+10),(x,y+17),(x-3,y+10),(x-10,y+8),(x-3,y+6)])
+
+def draw_item(item):
+    x,y=item["x"],item["y"]
+    kind=item["kind"]
+    pulse=math.sin(item["phase"])*3
+    if kind=="boost":
+        # golden lightning capsule
+        pygame.draw.ellipse(screen,(255,240,141),(x-24,y-23,48,46))
+        pygame.draw.ellipse(screen,(255,255,224),(x-19,y-18,38,36),3)
+        pygame.draw.polygon(screen,(255,166,46),[(x+2,y-17),(x-11,y+2),(x-1,y+2),(x-5,y+17),(x+12,y-5),(x+3,y-5)])
+        pygame.draw.circle(screen,(255,255,255),(x-10,y-10),3)
+    elif kind=="star":
+        pygame.draw.circle(screen,(255,231,114),(x,y),24+int(pulse), width=0)
+        pts=[]
+        for j in range(10):
+            a=-math.pi/2+j*math.pi/5
+            r=17 if j%2==0 else 8
+            pts.append((x+math.cos(a)*r,y+math.sin(a)*r))
+        pygame.draw.polygon(screen,(255,255,255),pts)
+        pygame.draw.polygon(screen,(255,193,67),pts,3)
+    elif kind=="cone":
+        pygame.draw.ellipse(screen,(255,255,255),(x-20,y+13,40,10))
+        pygame.draw.polygon(screen,(255,125,78),[(x,y-23),(x-20,y+16),(x+20,y+16)])
+        pygame.draw.polygon(screen,(255,236,214),[(x-11,y+1),(x+11,y+1),(x+15,y+9),(x-15,y+9)])
+        pygame.draw.line(screen,(255,206,186),(x,y-16),(x-11,y+9),2)
+    elif kind=="puddle":
+        pygame.draw.ellipse(screen,(67,177,255),(x-31,y-12,62,24))
+        pygame.draw.ellipse(screen,(188,245,255),(x-22,y-7,42,11),3)
+        pygame.draw.circle(screen,(255,255,255),(x+12,y-5),3)
+    elif kind=="cotton":
+        for ox,oy,r in [(-14,3,14),(0,-5,17),(15,3,13),(0,8,15)]:
+            pygame.draw.circle(screen,(255,255,255),(x+ox,y+oy),r)
+            pygame.draw.circle(screen,(255,205,237),(x+ox,y+oy),r,2)
+        pygame.draw.line(screen,(255,130,198),(x-12,y+12),(x+12,y-10),3)
+
+def reset_game():
+    return {"x":550.0,"y":555.0,"speed":300.0,"distance":0,"stars":0,"lives":3,
+            "items":[],"particles":[],"spawn":0,"boost":0,"slow":0,"hit_flash":0,
+            "over":False,"paused":False,"message":"Attrape les étoiles et fonce !","message_t":2.5}
+
+clouds=[(100,105,1.0),(360,155,.72),(690,92,.85),(970,175,.7)]
+game=reset_game()
+road_offset=0
+elapsed=0
+running=True
+
+while running:
+    dt=min(clock.tick(FPS)/1000,0.035)
+    elapsed+=dt
+    keys=pygame.key.get_pressed()
+    for event in pygame.event.get():
+        if event.type==pygame.QUIT: running=False
+        if event.type==pygame.KEYDOWN:
+            if event.key==pygame.K_ESCAPE: running=False
+            if event.key==pygame.K_p and not game["over"]: game["paused"]=not game["paused"]
+            if event.key==pygame.K_RETURN and game["over"]: game=reset_game()
+
+    if not game["over"] and not game["paused"]:
+        # steer
+        move=(int(keys[pygame.K_RIGHT] or keys[pygame.K_d])-int(keys[pygame.K_LEFT] or keys[pygame.K_a] or keys[pygame.K_q]))
+        game["x"]+=move*420*dt
+        game["x"]=max(390,min(710,game["x"]))
+        game["boost"]=max(0,game["boost"]-dt)
+        game["slow"]=max(0,game["slow"]-dt)
+        game["hit_flash"]=max(0,game["hit_flash"]-dt)
+        game["message_t"]=max(0,game["message_t"]-dt)
+        speed=game["speed"]*(1.8 if game["boost"]>0 else 0.65 if game["slow"]>0 else 1)
+        road_offset+=speed*dt
+        game["distance"]+=speed*dt/12
+
+        # item spawner, density increases with distance
+        game["spawn"]+=dt
+        if game["spawn"]>.62:
+            game["spawn"]=0
+            lane=random.choice([430,490,550,610,670])
+            kind=random.choices(["star","boost","cone","puddle","cotton"],[35,17,17,15,16])[0]
+            game["items"].append({"x":lane+random.randint(-12,12),"y":310,"kind":kind,"phase":random.random()*6.28})
+
+        for item in game["items"][:]:
+            item["y"]+=speed*dt*0.8
+            item["phase"]+=dt*5
+            if item["y"]>H+50:
+                game["items"].remove(item)
+                continue
+            if abs(item["x"]-game["x"])<42 and abs(item["y"]-game["y"])<48:
+                if item["kind"]=="star":
+                    game["stars"]+=1
+                    game["message"]="Super ! Une etoile !"
+                    game["message_t"]=1.1
+                    for _ in range(12):
+                        game["particles"].append({"x":game["x"],"y":game["y"],"vx":random.uniform(-120,120),"vy":random.uniform(-180,40),"life":.7,"color":GOLD})
+                elif item["kind"]=="boost":
+                    game["boost"]=2.6
+                    game["message"]="TURBO ARC-EN-CIEL !"
+                    game["message_t"]=1.5
+                    for _ in range(18):
+                        game["particles"].append({"x":game["x"],"y":game["y"]+30,"vx":random.uniform(-100,100),"vy":random.uniform(20,160),"life":.6,"color":random.choice([PINK,CYAN,GOLD,PURPLE])})
+                elif item["kind"]=="cotton":
+                    game["message"]="Nuage tout doux !"
+                    game["message_t"]=1.2
+                    game["stars"]+=2
+                elif item["kind"] in ("cone","puddle") and game["hit_flash"]<=0:
+                    game["lives"]-=1
+                    game["hit_flash"]=1.1
+                    game["slow"]=1.4
+                    game["message"]="Oups ! Fais attention !"
+                    game["message_t"]=1.5
+                    for _ in range(14):
+                        game["particles"].append({"x":game["x"],"y":game["y"],"vx":random.uniform(-130,130),"vy":random.uniform(-150,60),"life":.5,"color":PINK})
+                    if game["lives"]<=0: game["over"]=True
+                game["items"].remove(item)
+
+        for p in game["particles"][:]:
+            p["x"]+=p["vx"]*dt
+            p["y"]+=p["vy"]*dt
+            p["vy"]+=240*dt
+            p["life"]-=dt
+            if p["life"]<=0: game["particles"].remove(p)
+
+    # background and road
+    gradient_sky()
+    draw_road(road_offset)
+    # distant flowers and roadside signs
+    for i in range(6):
+        yy=(i*145+int(road_offset*.75))%800-60
+        # signs
+        sx=300-int((yy-300)*.12)
+        pygame.draw.rect(screen,(255,255,255),(sx-3,yy,6,45),border_radius=3)
+        pygame.draw.circle(screen,(255,125,202),(sx,yy),14)
+        pygame.draw.circle(screen,(255,240,250),(sx,yy),14,3)
+        pygame.draw.circle(screen,(255,218,92),(sx,yy),5)
+
+    for item in game["items"]:
+        draw_item(item)
+    draw_unicorn_car(int(game["x"]),int(game["y"]),elapsed,game["boost"]>0)
+
+    for p in game["particles"]:
+        pygame.draw.circle(screen,p["color"],(int(p["x"]),int(p["y"])),max(1,int(5*p["life"]/.7)))
+
+    # UI header
+    panel=pygame.Surface((W,90),pygame.SRCALPHA)
+    pygame.draw.rect(panel,(80,52,128,190),(0,0,W,90))
+    pygame.draw.line(panel,(255,220,250,230),(0,88),(W,88),3)
+    screen.blit(panel,(0,0))
+    draw_text("UNICORN TURBO  *",22,13,font,(255,235,255))
+    draw_text(f"Etoiles : {game['stars']}",25,50,small,(255,239,132))
+    draw_text(f"Distance : {int(game['distance'])} m",220,20,small,WHITE)
+    draw_text("Vies :",440,20,small,WHITE)
+    for i in range(3):
+        col=(255,92,156) if i<game["lives"] else (110,91,130)
+        hx=500+i*28
+        pygame.draw.circle(screen,col,(hx-5,32),8)
+        pygame.draw.circle(screen,col,(hx+5,32),8)
+        pygame.draw.polygon(screen,col,[(hx-13,34),(hx+13,34),(hx,48)])
+    draw_text("← → ou A/D : tourner",700,12,small,WHITE)
+    draw_text("P : pause   Échap : quitter",700,42,small,WHITE)
+
+    if game["boost"]>0:
+        pygame.draw.rect(screen,(255,255,255),(W//2-130,105,260,18),border_radius=9)
+        pygame.draw.rect(screen,(255,184,69),(W//2-126,109,int(252*game["boost"]/2.6),10),border_radius=6)
+        draw_text("TURBO !",W//2,145,small,(255,248,151),True)
+
+    if game["message_t"]>0 and not game["over"]:
+        draw_text(game["message"],W//2,200,font,(255,255,255),True)
+
+    if game["paused"]:
+        veil=pygame.Surface((W,H),pygame.SRCALPHA); veil.fill((44,26,82,170)); screen.blit(veil,(0,0))
+        draw_text("PAUSE",W//2,H//2-20,big,WHITE,True)
+        draw_text("Appuie sur P pour reprendre",W//2,H//2+40,font,(255,230,250),True)
+
+    if game["over"]:
+        veil=pygame.Surface((W,H),pygame.SRCALPHA); veil.fill((48,27,84,205)); screen.blit(veil,(0,0))
+        draw_text("FIN DE LA COURSE",W//2,260,big,(255,231,250),True)
+        draw_text(f"Tu as ramasse {game['stars']} etoiles !",W//2,335,font,(255,240,140),True)
+        draw_text("Appuie sur ENTREE pour rejouer",W//2,400,font,WHITE,True)
+
+    pygame.display.flip()
+
+pygame.quit()

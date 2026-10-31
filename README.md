@@ -12,33 +12,43 @@ un ami peut le coller dans le menu pour jouer au meme parcours.
 ```
 
 - **Jouer la carte de base** : campagne de 12 niveaux de difficulte
-  croissante, avec de nouveaux trous, pics et monstres a chaque etape.
+  croissante, avec trous, pics, monstres et troncons de toboggan repartis
+  dans les niveaux.
 - **Creer mon parcours** : ouvre l'editeur.
+- **Nouveau parcours** : ouvre directement une carte vide de 40 x 11 cases. Le bouton **TAILLE** permet ensuite de choisir une largeur de 8 a 200 cases et une hauteur de 6 a 50 cases ; les cases coupees par un redimensionnement sont retirees.
 - Outils d'editeur : gomme (0), sol (1), plateforme (2), pics (3),
   checkpoint (4), ressort (5), gemme (6), coeur (7), monstre (M),
-  depart (8), arrivee (9), rampe montante et rampe descendante (palette). Le coeur rend une vie, jusqu'a cinq au total ;
+  toboggan blanc (T), depart (8), arrivee (9), rampe montante et rampe descendante (palette). Le coeur rend une vie, jusqu'a cinq au total ;
   les monstres patrouillent sur les plateformes et font perdre une vie au contact.
 - **Ctrl+Z / Ctrl+Y** dans l'editeur : annuler ou refaire une modification.
+- Les marqueurs **depart (8)** et **arrivee (9)** se placent en cliquant sur
+  une case libre. Le nouveau parcours n'ajoute aucun terrain ni monstre ;
+  place ces marqueurs, puis construis le niveau avec les outils.
 - **SAUVER** ou **Ctrl+S** : conserver le brouillon sur cet ordinateur ;
-  **N** : repartir du parcours de demonstration.
+  **N** : creer un autre parcours vide.
 - **Defi arcade** : esquive les projectiles et ramasse les fragments pendant
   45 secondes.
 - Dans l'editeur, clique une case pour poser le bloc selectionne. Le clic droit
   efface une case ; les touches 0 a 6, 8 et 9 selectionnent aussi les outils.
-- **A/D** ou la molette : faire defiler la carte dans l'editeur.
+- Dans l'editeur, molette ou **W/S** pour defiler verticalement, **A/D** ou
+  **Maj + molette** pour defiler horizontalement. Les boutons fleches aux
+  coins de la carte facilitent le deplacement sur tablette et smartphone.
 - **CODE** : genere un code partageable et le copie dans le presse-papiers.
 - **TEST** : jouer son parcours ; **MENU** : revenir au menu principal.
 - Dans le parcours, fleches ou ZQSD pour bouger, Espace pour sauter et Echap
   pour mettre en pause. Le saut est tolerant juste apres avoir quitte une
   plateforme ; les gemmes augmentent le score, les checkpoints servent de
   points de reprise et les ressorts propulsent le joueur.
+- Le toboggan blanc accelere le personnage dans la direction choisie lorsqu'il
+  glisse dessus ; pousse dans l'autre sens pour inverser sa course.
 - Dans le menu, clique dans la zone de code, colle le code de ton ami avec
   Ctrl+V puis clique sur **Jouer le code** (ou appuie sur Entree).
 - Dans le defi arcade, fleches ou ZQSD pour bouger, Espace pour esquiver et
   P/Echap pour mettre en pause.
 
 Le partage fonctionne en copiant un code texte, sans serveur ni comptes en
-ligne. Les records du defi arcade sont conserves localement sur l'ordinateur.
+ligne. Les nouveaux codes P7 enregistrent aussi les dimensions choisies ; les
+anciens codes P1 a P6 restent acceptes. Les records du defi arcade sont conserves localement sur l'ordinateur.
 Le meilleur temps de chaque parcours est egalement garde localement. Le dernier
 brouillon est recharge quand tu ouvres l'editeur sur le meme ordinateur.
 

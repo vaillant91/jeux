@@ -28,7 +28,12 @@ NIVEAUX_CARTE_BASE = 12
 TAILLE_CASE = 48
 COLONNES_NIVEAU = 40
 LIGNES_NIVEAU = 11
+COLONNES_NIVEAU_MIN = 8
+COLONNES_NIVEAU_MAX = 200
+LIGNES_NIVEAU_MIN = 6
+LIGNES_NIVEAU_MAX = 50
 DEBUT_CARTE = pygame.Vector2(24, 112)
+ZONE_JEU = pygame.Rect(24, 112, LARGEUR - 48, 528)
 
 
 def creer_fenetre_jeu() -> pygame.Surface:
@@ -62,6 +67,7 @@ OUTIL_MONSTRE = 10
 OUTIL_MONSTRE_CRACHEUR = 11
 OUTIL_MONSTRE_CHARGEUR = 12
 OUTIL_MONSTRE_SAUTEUR = 13
+TOBOGGAN = 14
 OUTILS_MONSTRES = (
     OUTIL_MONSTRE, OUTIL_MONSTRE_CRACHEUR,
     OUTIL_MONSTRE_CHARGEUR, OUTIL_MONSTRE_SAUTEUR,
@@ -73,18 +79,27 @@ MONSTRE_SAUTEUR = 3
 LARGEUR_MONSTRE = 42
 HAUTEUR_MONSTRE = 40
 OUTILS_PAR_CATEGORIE = {
-    "blocs": (0, SOL, PLATEFORME, PIC, RESSORT, GEMME, COEUR,
+    "blocs": (0, SOL, PLATEFORME, PIC, RESSORT, GEMME, COEUR, TOBOGGAN,
               OUTIL_DEPART, OUTIL_ARRIVEE),
     "monstres": OUTILS_MONSTRES,
     "checkpoint": (POINT_CONTROLE,),
 }
 CODE_ALPHABET = string.ascii_uppercase + string.digits
-THEMES_PARCOURS = ("prairie", "volcan", "glace", "desert")
+THEMES_PARCOURS = ("prairie", "volcan", "glace", "desert",
+                   "foret", "ocean", "lunaire")
+THEMES_NIVEAUX_BASE = (
+    "prairie", "desert", "foret", "glace", "ocean", "volcan",
+    "lunaire", "prairie", "foret", "desert", "glace", "volcan",
+)
 NOMS_THEMES = {"prairie": "PRAIRIE", "volcan": "VOLCAN",
-               "glace": "GLACE", "desert": "DESERT"}
+               "glace": "GLACE", "desert": "DESERT",
+               "foret": "FORÊT", "ocean": "OCÉAN", "lunaire": "LUNAIRE"}
 ACCENTS_THEMES = {"prairie": (100, 220, 151), "volcan": (255, 112, 51),
-                  "glace": (117, 221, 255), "desert": (255, 190, 82)}
+                  "glace": (117, 221, 255), "desert": (255, 190, 82),
+                  "foret": (133, 224, 128), "ocean": (73, 221, 220),
+                  "lunaire": (187, 177, 255)}
 SURFACES_TEINTE_THEME: dict[tuple[str, tuple[int, int]], pygame.Surface] = {}
+POLICES_MARQUEUR: dict[int, pygame.font.Font] = {}
 FOND = (12, 17, 33)
 PANNEAU = (23, 31, 55)
 BLANC = (239, 244, 255)
@@ -110,6 +125,9 @@ def dessiner_arriere_plan_theme(surface: pygame.Surface, theme: str,
         "volcan": ((17, 14, 30), (104, 37, 31)),
         "glace": ((28, 66, 125), (151, 218, 243)),
         "desert": ((64, 32, 58), (245, 145, 75)),
+        "foret": ((10, 33, 43), (48, 119, 82)),
+        "ocean": ((8, 38, 76), (19, 139, 166)),
+        "lunaire": ((12, 16, 42), (78, 72, 126)),
     }
     haut, bas = palettes[theme]
     for y in range(zone.top, zone.bottom):
@@ -192,7 +210,7 @@ def dessiner_arriere_plan_theme(surface: pygame.Surface, theme: str,
             x = zone.left + (index * 97 + 31 - round(decalage * .1)) % zone.width
             y = zone.top + (index * 53 + 27) % max(1, zone.height)
             pygame.draw.circle(surface, (224, 248, 255), (x, y), 1 + index % 2)
-    else:
+    elif theme == "desert":
         soleil = (zone.left + round(zone.width * .77),
                   zone.top + round(zone.height * .22))
         pygame.draw.circle(surface, (255, 218, 134), soleil, max(22, zone.width // 24))
@@ -216,6 +234,90 @@ def dessiner_arriere_plan_theme(surface: pygame.Surface, theme: str,
             pygame.draw.rect(surface, (48, 107, 67), (x - 13, y + 5, 8, 25), border_radius=4)
             pygame.draw.rect(surface, (48, 107, 67), (x + 11, y + 37, 13, 10), border_radius=4)
             pygame.draw.rect(surface, (48, 107, 67), (x + 16, y + 27, 8, 25), border_radius=4)
+    elif theme == "foret":
+        rayon = max(24, zone.width // 27)
+        soleil = (zone.left + round(zone.width * .73), zone.top + round(zone.height * .2))
+        pygame.draw.circle(surface, (188, 226, 151), soleil, rayon)
+        pygame.draw.circle(surface, (223, 244, 182), soleil, round(rayon * .68))
+        pygame.draw.polygon(surface, (29, 83, 72), [
+            (zone.left - 20, zone.bottom - 24),
+            (zone.left + zone.width // 4, zone.top + round(zone.height * .58)),
+            (zone.left + zone.width // 2, zone.bottom - 64),
+            (zone.left + zone.width * 3 // 4, zone.top + round(zone.height * .54)),
+            (zone.right + 20, zone.bottom - 35),
+            (zone.right + 20, zone.bottom + 20), (zone.left - 20, zone.bottom + 20),
+        ])
+        for index in range(zone.width // 105 + 4):
+            x = zone.left + (index * 137 - round(decalage * .32)) % (zone.width + 180) - 80
+            base_y = zone.bottom + 8
+            hauteur_arbre = 82 + index * 37 % 95
+            largeur_arbre = 22 + index * 11 % 18
+            pygame.draw.rect(surface, (44, 70, 55),
+                             (x - 5, base_y - hauteur_arbre // 2, 10, hauteur_arbre // 2))
+            pygame.draw.polygon(surface, (17, 56, 53), [
+                (x, base_y - hauteur_arbre),
+                (x - largeur_arbre, base_y - hauteur_arbre // 3),
+                (x - largeur_arbre // 2, base_y - hauteur_arbre // 3),
+                (x - largeur_arbre - 5, base_y - 5),
+                (x + largeur_arbre + 5, base_y - 5),
+                (x + largeur_arbre // 2, base_y - hauteur_arbre // 3),
+                (x + largeur_arbre, base_y - hauteur_arbre // 3),
+            ])
+        for index in range(16):
+            x = zone.left + (index * 79 + 23 - round(decalage * .18)) % zone.width
+            y = zone.top + (index * 53 + 31) % max(1, zone.height)
+            pygame.draw.circle(surface, (204, 247, 143), (x, y), 1 + index % 2)
+    elif theme == "ocean":
+        soleil = (zone.left + round(zone.width * .72), zone.top + round(zone.height * .24))
+        pygame.draw.circle(surface, (176, 238, 239), soleil, max(22, zone.width // 32))
+        ligne_horizon = zone.top + round(zone.height * .58)
+        pygame.draw.polygon(surface, (17, 82, 119), [
+            (zone.left - 20, ligne_horizon + 26),
+            (zone.left + zone.width // 5, ligne_horizon - 17),
+            (zone.left + zone.width // 3, ligne_horizon + 13),
+            (zone.left + zone.width * 2 // 3, ligne_horizon - 9),
+            (zone.right + 20, ligne_horizon + 18),
+            (zone.right + 20, zone.bottom + 20), (zone.left - 20, zone.bottom + 20),
+        ])
+        for index in range(9):
+            y = ligne_horizon + 27 + index * max(9, zone.height // 24)
+            decalage_vague = round(decalage * (.12 + index * .025))
+            points = [(zone.left - 10, y)]
+            for x in range(zone.left, zone.right + 16, 24):
+                yy = y + round(math.sin((x + decalage_vague + index * 27) * .025) * (3 + index // 3))
+                points.append((x, yy))
+            pygame.draw.lines(surface, (35, 164 + min(50, index * 5), 187 + min(40, index * 4)),
+                              False, points, 2 if index % 3 == 0 else 1)
+        for index in range(20):
+            x = zone.left + (index * 67 + 29 - round(decalage * .08)) % zone.width
+            y = ligne_horizon + 18 + (index * 47 + 11) % max(1, zone.height - (ligne_horizon - zone.top))
+            pygame.draw.circle(surface, (170, 241, 238), (x, y), 1 + index % 3)
+    elif theme == "lunaire":
+        lune = (zone.left + round(zone.width * .76), zone.top + round(zone.height * .23))
+        rayon_lune = max(26, zone.width // 28)
+        pygame.draw.circle(surface, (211, 211, 237), lune, rayon_lune)
+        for index, facteur in enumerate((.30, .53, .68, .42)):
+            crater = (lune[0] + round((index - 1.5) * rayon_lune * .43),
+                      lune[1] + round((index % 2 - .5) * rayon_lune * .54))
+            pygame.draw.circle(surface, (164, 166, 201), crater, max(3, round(rayon_lune * facteur * .22)))
+        for index in range(13):
+            base_x = zone.left + index * 123 - round(decalage * .2)
+            sommet = zone.top + zone.height * (45 + index * 17 % 26) // 100
+            pygame.draw.polygon(surface, (31, 35, 67), [
+                (base_x - 50, zone.bottom + 10), (base_x + 18, sommet),
+                (base_x + 83, zone.bottom + 10),
+            ])
+        pygame.draw.polygon(surface, (47, 48, 81), [
+            (zone.left - 20, zone.bottom - 35),
+            (zone.left + zone.width // 3, zone.bottom - 124),
+            (zone.left + zone.width * 2 // 3, zone.bottom - 63),
+            (zone.right + 20, zone.bottom - 148),
+            (zone.right + 20, zone.bottom + 20), (zone.left - 20, zone.bottom + 20),
+        ])
+        for index in range(38):
+            x = zone.left + (index * 71 + 17 - round(decalage * .07)) % zone.width
+            y = zone.top + (index * 43 + 19) % max(1, zone.height * 2 // 3)
+            pygame.draw.circle(surface, (221, 222, 250), (x, y), 1 + index % 2)
     if theme == "volcan":
         # Un panache de cendres adoucit le contour du cratere.
         for index in range(7):
@@ -249,7 +351,7 @@ def dessiner_arriere_plan_theme(surface: pygame.Surface, theme: str,
             x = zone.left + (index * 83 + 19 - round(decalage * .12)) % zone.width
             y = zone.top + (index * 59 + 13) % max(1, zone.height)
             pygame.draw.line(surface, (222, 246, 255), (x, y), (x + 2, y + 8), 1)
-    else:
+    elif theme == "desert":
         # Fines strates suivent les dunes et donnent une echelle au relief.
         for index, amplitude in enumerate((45, 70, 90)):
             points = []
@@ -260,6 +362,26 @@ def dessiner_arriere_plan_theme(surface: pygame.Surface, theme: str,
                 points.append((x, y))
             pygame.draw.lines(surface, (226, 158 + index * 8, 91 + index * 7),
                               False, points, 2)
+    elif theme == "foret":
+        for index in range(22):
+            x = zone.left + (index * 97 + 13 - round(decalage * .2)) % zone.width
+            y = zone.top + 12 + (index * 61 + 7) % max(1, zone.height * 2 // 3)
+            pygame.draw.ellipse(surface, (59, 132, 88), (x, y, 13, 5))
+            pygame.draw.circle(surface, (215, 247, 151), (x + 6, y + 2), 1)
+    elif theme == "ocean":
+        for index in range(27):
+            x = zone.left + (index * 89 + 43 - round(decalage * .11)) % zone.width
+            y = zone.top + (index * 47 + 17) % max(1, zone.height)
+            rayon = 2 + index % 4
+            pygame.draw.circle(surface, (117, 224, 232), (x, y), rayon, 1)
+            pygame.draw.arc(surface, (213, 250, 244), (x - rayon + 1, y - rayon + 1,
+                                                        rayon, rayon), .2, 2.0, 1)
+    elif theme == "lunaire":
+        for index in range(18):
+            x = zone.left + (index * 101 + 29 - round(decalage * .09)) % zone.width
+            y = zone.top + 15 + (index * 53 + 11) % max(1, zone.height * 2 // 3)
+            pygame.draw.line(surface, (156, 167, 218), (x - 3, y), (x + 3, y), 1)
+            pygame.draw.line(surface, (156, 167, 218), (x, y - 3), (x, y + 3), 1)
 
     surface.set_clip(ancien_clip)
 
@@ -274,6 +396,9 @@ def surface_teinte_theme(theme: str, taille: tuple[int, int]) -> pygame.Surface:
             "volcan": ((184, 74, 43), 68),
             "glace": ((106, 184, 232), 76),
             "desert": ((237, 171, 91), 62),
+            "foret": ((91, 156, 79), 68),
+            "ocean": ((51, 176, 196), 74),
+            "lunaire": ((137, 129, 190), 72),
         }[theme]
         surface.fill((*couleur, alpha))
         SURFACES_TEINTE_THEME[cle] = surface
@@ -295,30 +420,58 @@ def dessiner_bloc_theme(surface: pygame.Surface, rect: pygame.Rect,
         roche, dessus, lueur = (58, 112, 151), (185, 232, 248), (93, 207, 239)
         reflet = (240, 254, 255)
         famille = "concrete"
+    elif theme == "foret":
+        roche, dessus, lueur = (59, 91, 54), (108, 156, 73), (117, 207, 104)
+        reflet = (198, 232, 138)
+        famille = "soil"
+    elif theme == "ocean":
+        roche, dessus, lueur = (28, 83, 111), (47, 151, 164), (63, 208, 210)
+        reflet = (155, 243, 232)
+        famille = "stone"
+    elif theme == "lunaire":
+        roche, dessus, lueur = (53, 56, 82), (119, 124, 158), (152, 164, 217)
+        reflet = (213, 218, 247)
+        famille = "stone"
+    elif theme == "prairie":
+        roche, dessus, lueur = (102, 72, 51), (91, 153, 78), (117, 190, 94)
+        reflet = (192, 226, 142)
+        famille = "soil"
     else:
         roche, dessus, lueur = (139, 86, 48), (222, 163, 82), (255, 207, 107)
         reflet = (255, 231, 162)
         famille = "soil"
 
-    def dessiner_matiere(zone: pygame.Rect, id_matiere: int) -> None:
+    def dessiner_matiere(zone: pygame.Rect, id_matiere: int,
+                         famille_texture: str | None = None) -> None:
         if materiaux is None:
             pygame.draw.rect(surface, roche, zone, border_radius=2)
             return
-        texture = materiaux.texture(famille, zone.width, zone.height, id_matiere)
+        texture = materiaux.texture(famille_texture or famille, zone.width,
+                                    zone.height, id_matiere % 17)
         surface.blit(texture, zone.topleft)
-        surface.blit(surface_teinte_theme(theme, zone.size), zone.topleft)
+        if theme != "prairie":
+            surface.blit(surface_teinte_theme(theme, zone.size), zone.topleft)
 
     if type_case == SOL:
         dessiner_matiere(rect, variante)
         bandeau = max(5, hauteur // 5)
-        pygame.draw.polygon(surface, dessus, [
-            (x + 1, y + 2), (x + largeur // 3, y + 1),
-            (x + largeur * 2 // 3, y + 3), (x + largeur - 2, y + 1),
-            (x + largeur - 2, y + bandeau),
-            (x + 2, y + bandeau + 2),
-        ])
+        if theme in ("prairie", "foret") and materiaux is not None:
+            zone_herbe = pygame.Rect(x + 1, y + 1, max(1, largeur - 2),
+                                     max(1, bandeau + 3))
+            dessiner_matiere(zone_herbe, variante, "grass")
+        else:
+            pygame.draw.polygon(surface, dessus, [
+                (x + 1, y + 2), (x + largeur // 3, y + 1),
+                (x + largeur * 2 // 3, y + 3), (x + largeur - 2, y + 1),
+                (x + largeur - 2, y + bandeau),
+                (x + 2, y + bandeau + 2),
+            ])
         pygame.draw.line(surface, reflet, (x + 3, y + 2),
                          (x + largeur - 4, y + 2), 1)
+        pygame.draw.line(surface, (35, 34, 35), (x + 2, y + hauteur - 2),
+                         (x + largeur - 3, y + hauteur - 2), 2)
+        pygame.draw.line(surface, (36, 35, 36), (x + largeur - 2, y + 5),
+                         (x + largeur - 2, y + hauteur - 3), 2)
         if theme == "volcan":
             phase = .78 + .22 * ((math.sin(pygame.time.get_ticks() * .004
                                             + variante * .83) + 1) * .5)
@@ -344,7 +497,7 @@ def dessiner_bloc_theme(surface: pygame.Surface, rect: pygame.Rect,
             pygame.draw.line(surface, (125, 197, 224),
                              (x + largeur // 2, y + hauteur // 2),
                              (x + largeur - 7, y + hauteur - 8), 1)
-        else:
+        elif theme == "desert":
             for index in range(3):
                 strate_y = y + bandeau + 7 + index * max(5, hauteur // 5)
                 if strate_y < y + hauteur - 3:
@@ -354,11 +507,43 @@ def dessiner_bloc_theme(surface: pygame.Surface, rect: pygame.Rect,
                     pygame.draw.line(surface, reflet,
                                      (x + 7, strate_y + 2),
                                      (x + largeur // 2, strate_y + 2), 1)
+        elif theme == "prairie":
+            for index in range(5):
+                herbe_x = x + 5 + (index * 9 + variante * 3) % max(8, largeur - 10)
+                hauteur_brins = 3 + (index + variante) % 4
+                pygame.draw.line(surface, (58, 112, 62),
+                                 (herbe_x, y + bandeau + 3),
+                                 (herbe_x - 2, y + bandeau - hauteur_brins), 1)
+                pygame.draw.line(surface, (174, 218, 117),
+                                 (herbe_x + 1, y + bandeau + 3),
+                                 (herbe_x + 2, y + bandeau - hauteur_brins + 1), 1)
+        elif theme == "foret":
+            for index in range(4):
+                feuille_x = x + 7 + (index * 13 + variante * 5) % max(8, largeur - 12)
+                feuille_y = y + bandeau + 7 + index * max(4, hauteur // 5)
+                if feuille_y < y + hauteur - 3:
+                    pygame.draw.ellipse(surface, (119, 190, 93),
+                                        (feuille_x, feuille_y, 7, 4))
+                    pygame.draw.line(surface, (57, 107, 57),
+                                     (feuille_x + 1, feuille_y + 3),
+                                     (feuille_x + 6, feuille_y + 1), 1)
+        elif theme == "ocean":
+            for index in range(3):
+                vague_y = y + bandeau + 8 + index * max(5, hauteur // 4)
+                if vague_y < y + hauteur - 2:
+                    pygame.draw.arc(surface, (88, 206, 208),
+                                    (x + 5 + index * 4, vague_y - 3,
+                                     max(8, largeur - 12), 10), .2, 2.8, 1)
+        elif theme == "lunaire":
+            cratere_x = x + 9 + variante * 11 % max(10, largeur - 18)
+            cratere_y = y + bandeau + 10 + variante * 7 % max(10, hauteur - bandeau - 12)
+            pygame.draw.ellipse(surface, (43, 47, 71), (cratere_x, cratere_y, 10, 5))
+            pygame.draw.arc(surface, reflet, (cratere_x, cratere_y, 10, 5), .1, 2.8, 1)
     elif type_case == PLATEFORME:
         y_plateforme = y + hauteur // 4
         h_plateforme = max(7, hauteur // 3)
         zone_plateforme = pygame.Rect(x + 1, y_plateforme, largeur - 2, h_plateforme)
-        dessiner_matiere(zone_plateforme, variante)
+        dessiner_matiere(zone_plateforme, variante, "wood")
         pygame.draw.polygon(surface, dessus, [
             (x + 2, y_plateforme + 1), (x + largeur // 3, y_plateforme),
             (x + largeur * 2 // 3, y_plateforme + 1), (x + largeur - 2, y_plateforme),
@@ -367,6 +552,16 @@ def dessiner_bloc_theme(surface: pygame.Surface, rect: pygame.Rect,
         ])
         pygame.draw.line(surface, lueur, (x + 4, y_plateforme + h_plateforme - 2),
                          (x + largeur - 5, y_plateforme + h_plateforme - 2), 2)
+        pygame.draw.line(surface, (43, 31, 28),
+                         (x + 3, y_plateforme + h_plateforme),
+                         (x + largeur - 4, y_plateforme + h_plateforme), 2)
+        for index in range(2):
+            noeud_x = x + 13 + (variante * 7 + index * 23) % max(8, largeur - 24)
+            noeud_y = y_plateforme + 5 + index * max(1, h_plateforme // 3)
+            if noeud_y < y_plateforme + h_plateforme - 1:
+                pygame.draw.ellipse(surface, (83, 54, 36), (noeud_x, noeud_y, 5, 3))
+                pygame.draw.arc(surface, (218, 168, 97),
+                                (noeud_x, noeud_y, 5, 3), .2, 2.8, 1)
         if theme == "volcan":
             pygame.draw.lines(surface, reflet, False, [
                 (x + largeur // 3, y_plateforme + 2),
@@ -377,10 +572,22 @@ def dessiner_bloc_theme(surface: pygame.Surface, rect: pygame.Rect,
             pygame.draw.line(surface, (244, 253, 255),
                              (x + 7, y_plateforme + 2),
                              (x + largeur // 2, y_plateforme + 2), 2)
-        else:
+        elif theme == "desert":
             pygame.draw.line(surface, (104, 65, 39),
                              (x + 6, y_plateforme + h_plateforme // 2),
                              (x + largeur - 6, y_plateforme + h_plateforme // 2), 1)
+        elif theme == "foret":
+            pygame.draw.line(surface, (177, 221, 117),
+                             (x + 7, y_plateforme + 2),
+                             (x + largeur - 8, y_plateforme + 2), 2)
+        elif theme == "ocean":
+            pygame.draw.arc(surface, (172, 246, 236),
+                            (x + 7, y_plateforme, largeur - 14, h_plateforme), .2, 2.8, 1)
+        elif theme == "lunaire":
+            pygame.draw.circle(surface, reflet,
+                               (x + largeur // 3, y_plateforme + h_plateforme // 2), 2)
+            pygame.draw.circle(surface, (60, 65, 95),
+                               (x + largeur * 2 // 3, y_plateforme + h_plateforme // 2), 3)
     elif type_case == PIC:
         for centre_x in (x + largeur // 4, x + largeur // 2, x + largeur * 3 // 4):
             pointe_y = y + hauteur // 5
@@ -390,8 +597,16 @@ def dessiner_bloc_theme(surface: pygame.Surface, rect: pygame.Rect,
                 (centre_x, pointe_y),
                 (centre_x + demi_largeur, y + hauteur - 5),
             ])
-            pygame.draw.line(surface, reflet, (centre_x, pointe_y + 3),
-                             (centre_x - 3, y + hauteur // 2), 2)
+            pygame.draw.polygon(surface, dessus, [
+                (centre_x, pointe_y),
+                (centre_x + demi_largeur, y + hauteur - 5),
+                (centre_x + 2, y + hauteur - 7),
+            ])
+            pygame.draw.line(surface, reflet, (centre_x - 1, pointe_y + 3),
+                             (centre_x - 4, y + hauteur // 2), 2)
+            pygame.draw.line(surface, (32, 34, 39),
+                             (centre_x + demi_largeur, y + hauteur - 5),
+                             (centre_x, pointe_y), 1)
         pygame.draw.line(surface, lueur, (x + 3, y + hauteur - 3),
                          (x + largeur - 4, y + hauteur - 3), max(2, hauteur // 12))
 
@@ -410,13 +625,41 @@ def dessiner_coeur(surface: pygame.Surface, centre: tuple[int, int], taille: int
     ])
 
 
+def texturer_peau_monstre(surface: pygame.Surface, zone: pygame.Rect,
+                          ombre: tuple[int, int, int],
+                          lumiere: tuple[int, int, int], graine: int) -> None:
+    """Ajoute des marbrures fines et des reflets a la peau du monstre."""
+    if zone.width < 8 or zone.height < 7:
+        return
+    generateur = random.Random(graine)
+    centre_x, centre_y = zone.center
+    rayon_x, rayon_y = max(1, zone.width // 2), max(1, zone.height // 2)
+    for _ in range(22):
+        px = generateur.randint(zone.left + 2, zone.right - 3)
+        py = generateur.randint(zone.top + 2, zone.bottom - 3)
+        distance = ((px - centre_x) / rayon_x) ** 2 + ((py - centre_y) / rayon_y) ** 2
+        if distance > .72:
+            continue
+        couleur = ombre if generateur.random() < .62 else lumiere
+        alpha = generateur.randint(18, 45)
+        largeur = generateur.choice((1, 2, 3))
+        hauteur = generateur.choice((1, 2))
+        pygame.draw.ellipse(surface, (*couleur, alpha),
+                            (px, py, largeur, hauteur))
+    reflet = zone.inflate(-5, -5)
+    pygame.draw.arc(surface, (*lumiere, 125), reflet, 3.55, 5.35, 2)
+    pygame.draw.arc(surface, (*ombre, 95), zone.inflate(-2, -2), .2, 1.5, 2)
+
+
 def dessiner_monstre(surface: pygame.Surface, rect: pygame.Rect,
                       type_monstre: int = MONSTRE_TRAQUEUR, temps: float = 0.0,
                       direction: float = 1.0, etat: str = "patrouille") -> None:
     """Dessine des creatures organiques detaillees et animees."""
     if rect.width <= 0 or rect.height <= 0:
         return
-    w, h = rect.size
+    # Les formes sont dessinees a leur taille native puis ajustees a la hitbox;
+    # les details ne sont ainsi plus coupes sur les sprites de 34 pixels.
+    w, h = LARGEUR_MONSTRE, HAUTEUR_MONSTRE
     sprite = pygame.Surface((w, h), pygame.SRCALPHA)
     phase = temps * 9.0
     pas = round(math.sin(phase) * 2)
@@ -436,6 +679,7 @@ def dessiner_monstre(surface: pygame.Surface, rect: pygame.Rect,
                              (px + 1, 33 + swing), 2)
         pygame.draw.ellipse(sprite, ombre, (7, 13, 29, 20))
         pygame.draw.ellipse(sprite, peau, (8, 11, 28, 19))
+        texturer_peau_monstre(sprite, pygame.Rect(8, 11, 28, 19), ombre, lumiere, 1101)
         pygame.draw.ellipse(sprite, lumiere, (12, 13, 16, 6))
         pygame.draw.ellipse(sprite, (64, 111, 68), (23, 12, 19, 14))
         pygame.draw.ellipse(sprite, peau, (27, 11, 15, 12))
@@ -462,6 +706,7 @@ def dessiner_monstre(surface: pygame.Surface, rect: pygame.Rect,
         pygame.draw.ellipse(sprite, peau, (5, 10, 34, 19))
         pygame.draw.ellipse(sprite, (111, 53, 52), (7, 7, 30, 18))
         pygame.draw.ellipse(sprite, (194, 92, 65), (9, 8, 26, 14))
+        texturer_peau_monstre(sprite, pygame.Rect(7, 8, 30, 20), ombre, lumiere, 2202)
         for px in (14, 21, 28):
             pygame.draw.arc(sprite, (232, 145, 94), (px - 5, 9, 10, 12),
                             0.1, 2.9, 2)
@@ -494,6 +739,7 @@ def dessiner_monstre(surface: pygame.Surface, rect: pygame.Rect,
                              (px + 2, end_y + 2), 1)
         pygame.draw.ellipse(sprite, ombre, (6, 13, 20, 16))
         pygame.draw.ellipse(sprite, peau, (7, 11, 19, 15))
+        texturer_peau_monstre(sprite, pygame.Rect(7, 11, 19, 15), ombre, lumiere, 3303)
         pygame.draw.ellipse(sprite, (46, 91, 129), (21, 14, 15, 13))
         pygame.draw.ellipse(sprite, lumiere, (23, 14, 10, 5))
         pygame.draw.ellipse(sprite, (42, 79, 110), (27, 10, 13, 12))
@@ -520,6 +766,7 @@ def dessiner_monstre(surface: pygame.Surface, rect: pygame.Rect,
                              (px + 2, 33 + swing), 2)
         pygame.draw.ellipse(sprite, ombre, (5, 12, 31, 20))
         pygame.draw.ellipse(sprite, peau, (6, 10, 30, 19))
+        texturer_peau_monstre(sprite, pygame.Rect(6, 10, 30, 19), ombre, lumiere, 4404)
         pygame.draw.ellipse(sprite, (89, 53, 129), (9, 14, 21, 12))
         pygame.draw.ellipse(sprite, (212, 165, 219), (11, 25, 19, 5))
         pygame.draw.polygon(sprite, (85, 57, 112), [(10, 14), (8, 6), (16, 13)])
@@ -554,6 +801,8 @@ def dessiner_monstre(surface: pygame.Surface, rect: pygame.Rect,
             pygame.draw.line(sprite, couleur_trace, (2, yy), (11, yy - 2), 2)
     if direction < 0:
         sprite = pygame.transform.flip(sprite, True, False)
+    if sprite.get_size() != rect.size:
+        sprite = pygame.transform.smoothscale(sprite, rect.size)
     surface.blit(sprite, rect.topleft)
 
 
@@ -573,9 +822,62 @@ def dessiner_projectile_monstre(surface: pygame.Surface, rect: pygame.Rect,
                        (rect.x + rect.width // 3, rect.y + rect.height // 3), 1)
 
 
+def dessiner_bloc_marqueur(surface: pygame.Surface, rect: pygame.Rect,
+                           type_case: int, theme: str = "prairie",
+                           variante: int = 0,
+                           materiaux: MaterialRenderer | None = None) -> None:
+    """Affiche depart et arrivee comme des blocs classiques marques."""
+    base = rect.inflate(-2, -2)
+    dessiner_bloc_theme(surface, base, SOL, theme, variante, materiaux)
+    est_depart = type_case == OUTIL_DEPART
+    accent = (50, 178, 104) if est_depart else (238, 174, 60)
+    ombre = (22, 54, 43) if est_depart else (82, 55, 28)
+    cote = max(16, min(24, min(rect.width, rect.height) // 2))
+    badge = pygame.Rect(0, 0, cote, cote)
+    badge.center = rect.center
+    pygame.draw.rect(surface, ombre, badge.inflate(4, 4), border_radius=6)
+    pygame.draw.rect(surface, accent, badge, border_radius=4)
+    pygame.draw.rect(surface, (248, 244, 220), badge, width=1, border_radius=4)
+    taille_police = max(16, min(23, cote))
+    police = POLICES_MARQUEUR.get(taille_police)
+    if police is None:
+        police = pygame.font.Font(None, taille_police)
+        POLICES_MARQUEUR[taille_police] = police
+    lettre = police.render("D" if est_depart else "A", True, (255, 250, 230))
+    surface.blit(lettre, lettre.get_rect(center=badge.center))
+
+
+def dessiner_toboggan(surface: pygame.Surface, rect: pygame.Rect) -> None:
+    """Dessine un conduit clair qui transporte le joueur lorsqu'il glisse."""
+    if rect.width < 8 or rect.height < 8:
+        return
+    pygame.draw.rect(surface, (39, 94, 127), rect, border_radius=9)
+    pygame.draw.rect(surface, (220, 246, 252), rect.inflate(-4, -4),
+                     border_radius=8)
+    canal = rect.inflate(-12, -14)
+    pygame.draw.rect(surface, (113, 202, 225), canal, border_radius=max(4, canal.height // 2))
+    pygame.draw.line(surface, (255, 255, 255),
+                     (rect.left + 9, rect.top + 5),
+                     (rect.right - 10, rect.top + 5), 2)
+    pygame.draw.line(surface, (137, 217, 235),
+                     (rect.left + 9, rect.bottom - 5),
+                     (rect.right - 10, rect.bottom - 5), 2)
+    centre_x, centre_y = rect.center
+    fleche_largeur = max(5, rect.width // 7)
+    fleche_hauteur = max(5, rect.height // 4)
+    for index in range(2):
+        x = centre_x - fleche_largeur + index * fleche_largeur
+        pygame.draw.polygon(surface, (245, 253, 255), [
+            (x - fleche_largeur // 2, centre_y - fleche_hauteur),
+            (x + fleche_largeur // 2, centre_y),
+            (x - fleche_largeur // 2, centre_y + fleche_hauteur),
+            (x, centre_y),
+        ])
+
+
 def dessiner_icone_palette(surface: pygame.Surface, rect: pygame.Rect,
-def dessiner_icone_palette(surface: pygame.Surface, rect: pygame.Rect,
-                           type_case: int) -> None:
+                           type_case: int, theme: str = "prairie",
+                           materiaux: MaterialRenderer | None = None) -> None:
     """Dessine des icones larges et contrastes pour les outils de l'editeur."""
     cx, cy = rect.center
     gauche, haut = cx - 18, cy - 15
@@ -693,28 +995,13 @@ def dessiner_icone_palette(surface: pygame.Surface, rect: pygame.Rect,
             OUTILS_MONSTRES.index(type_case),
         )
     elif type_case == OUTIL_DEPART:
-        pygame.draw.ellipse(surface, (42, 76, 54), (cx - 17, cy + 11, 34, 6))
-        pygame.draw.line(surface, (44, 69, 72), (cx - 10, cy + 13),
-                         (cx - 10, cy - 17), 5)
-        pygame.draw.line(surface, (224, 236, 230), (cx - 11, cy + 12),
-                         (cx - 11, cy - 15), 2)
-        pygame.draw.polygon(surface, (44, 180, 101), [
-            (cx - 8, cy - 16), (cx + 16, cy - 10),
-            (cx + 3, cy - 2), (cx - 8, cy - 5),
-        ])
-        pygame.draw.circle(surface, (240, 255, 242), (cx + 1, cy - 9), 3)
+        dessiner_bloc_marqueur(surface, rect, type_case, theme,
+                               materiaux=materiaux)
     elif type_case == OUTIL_ARRIVEE:
-        pygame.draw.ellipse(surface, (64, 51, 34), (cx - 17, cy + 11, 34, 6))
-        pygame.draw.line(surface, (48, 53, 60), (cx - 10, cy + 13),
-                         (cx - 10, cy - 17), 5)
-        pygame.draw.line(surface, (233, 237, 228), (cx - 11, cy + 12),
-                         (cx - 11, cy - 15), 2)
-        pygame.draw.polygon(surface, (241, 179, 57), [
-            (cx - 8, cy - 16), (cx + 16, cy - 10), (cx - 8, cy - 3),
-        ])
-        pygame.draw.rect(surface, (255, 240, 199), (cx - 4, cy - 13, 4, 4))
-        pygame.draw.rect(surface, (255, 240, 199), (cx + 5, cy - 11, 4, 4))
-        pygame.draw.circle(surface, (255, 234, 169), (cx - 10, cy - 17), 3)
+        dessiner_bloc_marqueur(surface, rect, type_case, theme,
+                               materiaux=materiaux)
+    elif type_case == TOBOGGAN:
+        dessiner_toboggan(surface, rect)
 
 
 
@@ -723,12 +1010,33 @@ def ligne_support_monstre(niveau: dict[str, object], colonne: int,
                            ligne: int) -> int | None:
     """Trouve la plateforme directement sous un monstre ou dans sa case."""
     cases = niveau["tiles"]
-    if cases[ligne][colonne] in (SOL, PLATEFORME):
+    if cases[ligne][colonne] in (SOL, PLATEFORME, TOBOGGAN):
         return ligne
     dessous = ligne + 1
-    if dessous < LIGNES_NIVEAU and cases[dessous][colonne] in (SOL, PLATEFORME):
+    if (dessous < len(cases)
+            and cases[dessous][colonne] in (SOL, PLATEFORME, TOBOGGAN)):
         return dessous
     return None
+
+
+def dimensions_niveau(niveau: dict[str, object]) -> tuple[int, int]:
+    """Retourne la largeur et la hauteur de la carte a partir de ses tuiles."""
+    cases = niveau["tiles"]
+    return len(cases[0]), len(cases)
+
+
+def niveau_vide(colonnes: int = COLONNES_NIVEAU,
+                rangees: int = LIGNES_NIVEAU) -> dict[str, object]:
+    """Construit un nouveau parcours sans terrain, obstacle ni monstre."""
+    colonnes = max(COLONNES_NIVEAU_MIN, min(COLONNES_NIVEAU_MAX, colonnes))
+    rangees = max(LIGNES_NIVEAU_MIN, min(LIGNES_NIVEAU_MAX, rangees))
+    return {
+        "tiles": [[0 for _ in range(colonnes)] for _ in range(rangees)],
+        "start": [1, rangees - 2],
+        "goal": [colonnes - 2, rangees - 2],
+        "monstres": [],
+        "theme": "prairie",
+    }
 
 
 def niveau_depart() -> dict[str, object]:
@@ -759,6 +1067,7 @@ def niveau_depart() -> dict[str, object]:
         cases[9][colonne] = GEMME
     for colonne in (3, 36):
         cases[9][colonne] = COEUR
+
     for colonne in (13, 29):
         cases[9][colonne] = POINT_CONTROLE
     cases[9][19] = RESSORT
@@ -848,46 +1157,126 @@ def niveau_carte_base(numero: int) -> dict[str, object]:
         cases[9][3] = COEUR
         cases[9][36] = COEUR
 
+    # Les toboggans remplacent quelques cases de sol pour donner des pointes
+    # de vitesse sans masquer les trous, les pics ou les monstres.
+    longueur_toboggan = 3
+    nombre_toboggans = 1 + (numero >= 5) + (numero >= 9)
+    segments_toboggan: list[range] = []
+    for index in range(nombre_toboggans):
+        cible = round(6 + index * 27 / max(1, nombre_toboggans - 1))
+        depart_toboggan = min(
+            (colonne for colonne in range(3, 36 - longueur_toboggan + 1)
+             if all(cases[9][case] != PIC
+                    and [case, 9] not in monstres
+                    and case not in trous
+                    for case in range(colonne, colonne + longueur_toboggan))
+             and all(abs(colonne - case) >= longueur_toboggan + 1
+                     for segment in segments_toboggan for case in segment)),
+            key=lambda colonne: (abs(colonne - cible), colonne),
+            default=None,
+        )
+        ligne_toboggan = LIGNES_NIVEAU - 1
+        if depart_toboggan is None:
+            # Aux niveaux charges, certaines glissieres prennent place sur
+            # une plateforme libre pour rester presentes sans couvrir un piege.
+            ligne_toboggan = 8
+            depart_toboggan = min(
+                (colonne for colonne in range(3, 36 - longueur_toboggan + 1)
+                 if all(cases[ligne_toboggan][case] in (0, PLATEFORME)
+                        for case in range(colonne, colonne + longueur_toboggan))
+                 and all(abs(colonne - case) >= longueur_toboggan + 1
+                         for segment in segments_toboggan for case in segment)),
+                key=lambda colonne: (abs(colonne - cible), colonne),
+                default=None,
+            )
+        if depart_toboggan is None:
+            continue
+        segment = range(depart_toboggan, depart_toboggan + longueur_toboggan)
+        segments_toboggan.append(segment)
+        for colonne in segment:
+            cases[ligne_toboggan][colonne] = TOBOGGAN
+
     return {
         "tiles": cases,
         "start": [1, 9],
         "goal": [38, 9],
         "monstres": monstres,
-        "theme": "prairie",
+        "theme": THEMES_NIVEAUX_BASE[numero - 1],
     }
 
 
 def encoder_niveau(niveau: dict[str, object]) -> str:
-    """Encode la carte, son biome et ses monstres dans un code partageable."""
+    """Encode une carte de taille libre avec son biome et ses monstres."""
     valider_niveau(niveau)
-    contenu = bytes(case for rangee in niveau["tiles"] for case in rangee)
+    colonnes, rangees = dimensions_niveau(niveau)
+    contenu = colonnes.to_bytes(2, "big") + rangees.to_bytes(2, "big")
+    contenu += bytes(case for rangee in niveau["tiles"] for case in rangee)
     contenu += bytes((*niveau["start"], *niveau["goal"]))
     monstres = niveau.get("monstres", [])
     contenu += len(monstres).to_bytes(2, "big")
-    contenu += bytes(coord for monstre in monstres for coord in monstre)
+    for monstre in monstres:
+        type_monstre = monstre[2] if len(monstre) == 3 else MONSTRE_TRAQUEUR
+        contenu += bytes((monstre[0], monstre[1], type_monstre))
     contenu += bytes((THEMES_PARCOURS.index(niveau.get("theme", "prairie")),))
     code = base64.urlsafe_b64encode(zlib.compress(contenu, level=9)).decode("ascii")
-    return "P4-" + code.rstrip("=")
+    return "P7-" + code.rstrip("=")
 
 
 def decoder_niveau(code: str) -> dict[str, object]:
     """Decode les anciens parcours et les nouveaux codes avec biome."""
-    code_nettoye = code.strip()
+    # Les anciens codes ont parfois ete copies avec retours a la ligne ou
+    # espaces, et certains generateurs utilisaient le Base64 standard avec
+    # padding au lieu du Base64 URL sans padding.
+    code_nettoye = "".join(code.split())
     prefixe = code_nettoye[:3].upper()
-    if prefixe not in ("P1-", "P2-", "P3-", "P4-") or len(code_nettoye) > 2000:
+    if prefixe not in ("P1-", "P2-", "P3-", "P4-", "P5-", "P6-", "P7-") or len(code_nettoye) > 60000:
         raise ValueError("Ce code de parcours n'est pas reconnu.")
     contenu_code = code_nettoye[3:]
-    if not contenu_code or any(caractere not in string.ascii_letters + string.digits + "-_"
+    if not contenu_code or any(caractere not in string.ascii_letters + string.digits + "-_+/="
                                for caractere in contenu_code):
         raise ValueError("Le code du parcours contient des caracteres invalides.")
     try:
         remplissage = "=" * (-len(contenu_code) % 4)
-        compresse = base64.urlsafe_b64decode(contenu_code + remplissage)
+        compresse = base64.b64decode(
+            (contenu_code + remplissage).encode("ascii"), altchars=b"-_", validate=True
+        )
         decompression = zlib.decompressobj()
-        contenu = decompression.decompress(compresse, 5000)
+        contenu = decompression.decompress(compresse, 50000)
         if decompression.unconsumed_tail or not decompression.eof:
             raise ValueError("Le code du parcours est trop volumineux ou incomplet.")
-        if prefixe in ("P2-", "P3-", "P4-"):
+        if prefixe == "P7-":
+            if len(contenu) < 4:
+                raise ValueError("Le code du parcours est incomplet ou abime.")
+            colonnes = int.from_bytes(contenu[:2], "big")
+            rangees = int.from_bytes(contenu[2:4], "big")
+            if not (COLONNES_NIVEAU_MIN <= colonnes <= COLONNES_NIVEAU_MAX
+                    and LIGNES_NIVEAU_MIN <= rangees <= LIGNES_NIVEAU_MAX):
+                raise ValueError("La taille de la carte n'est pas reconnue.")
+            nombre_tuiles = colonnes * rangees
+            debut_points = 4 + nombre_tuiles
+            debut_monstres = debut_points + 6
+            if len(contenu) < debut_monstres + 1:
+                raise ValueError("Le code du parcours est incomplet ou abime.")
+            nombre_monstres = int.from_bytes(contenu[debut_points + 4:debut_monstres], "big")
+            fin_monstres = debut_monstres + nombre_monstres * 3
+            if len(contenu) != fin_monstres + 1:
+                raise ValueError("Le code du parcours est incomplet ou abime.")
+            theme_index = contenu[-1]
+            if theme_index >= len(THEMES_PARCOURS):
+                raise ValueError("Le biome du parcours n'est pas reconnu.")
+            tuiles = list(contenu[4:debut_points])
+            cases = [tuiles[i:i + colonnes]
+                     for i in range(0, nombre_tuiles, colonnes)]
+            monstres = [list(contenu[i:i + 3])
+                        for i in range(debut_monstres, fin_monstres, 3)]
+            niveau = {
+                "tiles": cases,
+                "start": list(contenu[debut_points:debut_points + 2]),
+                "goal": list(contenu[debut_points + 2:debut_points + 4]),
+                "monstres": monstres,
+                "theme": THEMES_PARCOURS[theme_index],
+            }
+        elif prefixe in ("P2-", "P3-", "P4-", "P5-", "P6-"):
             nombre_tuiles = LIGNES_NIVEAU * COLONNES_NIVEAU
             taille_base = nombre_tuiles + 4
             if prefixe == "P2-":
@@ -896,17 +1285,20 @@ def decoder_niveau(code: str) -> dict[str, object]:
                 monstres = []
                 theme = "prairie"
             else:
-                taille_theme = 1 if prefixe == "P4-" else 0
+                taille_theme = 1 if prefixe in ("P4-", "P5-", "P6-") else 0
+                taille_monstre = 3 if prefixe in ("P5-", "P6-") else 2
                 if len(contenu) < taille_base + 2 + taille_theme:
                     raise ValueError("Le code du parcours est incomplet ou abime.")
                 nombre_monstres = int.from_bytes(contenu[taille_base:taille_base + 2], "big")
                 fin_monstres = len(contenu) - taille_theme
-                if fin_monstres != taille_base + 2 + nombre_monstres * 2:
+                if fin_monstres != taille_base + 2 + nombre_monstres * taille_monstre:
                     raise ValueError("Le code du parcours est incomplet ou abime.")
                 debut_monstres = taille_base + 2
-                monstres = [list(contenu[i:i + 2])
-                            for i in range(debut_monstres, fin_monstres, 2)]
-                if prefixe == "P4-":
+                monstres = []
+                for i in range(debut_monstres, fin_monstres, taille_monstre):
+                    entree = list(contenu[i:i + taille_monstre])
+                    monstres.append(entree)
+                if prefixe in ("P4-", "P5-", "P6-"):
                     index_theme = contenu[-1]
                     if index_theme >= len(THEMES_PARCOURS):
                         raise ValueError("Le biome du parcours n'est pas reconnu.")
@@ -914,6 +1306,11 @@ def decoder_niveau(code: str) -> dict[str, object]:
                 else:
                     theme = "prairie"
             tuiles = list(contenu[:nombre_tuiles])
+            if prefixe == "P5-":
+                # Dans P5, 3 designe le bloc de terrain (SOL) et 14 les pics.
+                # Les anciens formats de ce jeu utilisent respectivement 1 et 3.
+                tuiles = [SOL if tuile == 3 else PIC if tuile == 14 else tuile
+                          for tuile in tuiles]
             cases = [tuiles[i:i + COLONNES_NIVEAU]
                      for i in range(0, nombre_tuiles, COLONNES_NIVEAU)]
             niveau = {"tiles": cases, "start": list(contenu[nombre_tuiles:nombre_tuiles + 2]),
@@ -936,42 +1333,49 @@ def valider_niveau(niveau: dict[str, object]) -> None:
     if not isinstance(theme, str) or theme not in THEMES_PARCOURS:
         raise ValueError("Le theme du parcours n'est pas reconnu.")
     cases = niveau.get("tiles")
-    if not isinstance(cases, list) or len(cases) != LIGNES_NIVEAU:
-        raise ValueError("La carte doit avoir 11 rangees.")
+    if (not isinstance(cases, list)
+            or not LIGNES_NIVEAU_MIN <= len(cases) <= LIGNES_NIVEAU_MAX):
+        raise ValueError("La carte doit avoir entre 6 et 50 rangees.")
+    if not cases or not isinstance(cases[0], list):
+        raise ValueError("La carte doit contenir des rangees de cases.")
+    colonnes = len(cases[0])
+    rangees = len(cases)
+    if not COLONNES_NIVEAU_MIN <= colonnes <= COLONNES_NIVEAU_MAX:
+        raise ValueError("La carte doit avoir entre 8 et 200 cases de large.")
     for ligne in cases:
-        if not isinstance(ligne, list) or len(ligne) != COLONNES_NIVEAU:
-            raise ValueError("La carte doit avoir 40 cases par rangee.")
+        if not isinstance(ligne, list) or len(ligne) != colonnes:
+            raise ValueError("Toutes les rangees doivent avoir la meme largeur.")
         if any(type(case) is not int or case not in
-               (0, SOL, PLATEFORME, PIC, POINT_CONTROLE, RESSORT, GEMME, COEUR) for case in ligne):
+               (0, SOL, PLATEFORME, PIC, POINT_CONTROLE, RESSORT, GEMME, COEUR,
+                TOBOGGAN) for case in ligne):
             raise ValueError("La carte contient un bloc invalide.")
     for nom in ("start", "goal"):
         point = niveau.get(nom)
         if (not isinstance(point, list) or len(point) != 2
                 or any(type(coord) is not int for coord in point)
-                or not (0 <= point[0] < COLONNES_NIVEAU)
-                or not (0 <= point[1] < LIGNES_NIVEAU)):
+                or not (0 <= point[0] < colonnes)
+                or not (0 <= point[1] < rangees)):
             raise ValueError(f"Le point {nom} est absent ou hors de la carte.")
     depart = niveau["start"]
-    if (depart[1] >= LIGNES_NIVEAU - 1
-            or cases[depart[1]][depart[0]] != 0
-            or cases[depart[1] + 1][depart[0]] not in (SOL, PLATEFORME)):
-        raise ValueError("Le depart doit etre libre et pose sur une case sure.")
+    if depart[1] >= rangees - 1 or cases[depart[1]][depart[0]] != 0:
+        raise ValueError("Le depart doit etre libre et au-dessus du bord inferieur.")
     if depart == niveau["goal"]:
         raise ValueError("Le depart et l'arrivee doivent etre differents.")
     arrivee = niveau["goal"]
-    if cases[arrivee[1]][arrivee[0]] in (SOL, PLATEFORME, PIC, RESSORT, GEMME, COEUR):
+    if cases[arrivee[1]][arrivee[0]] != 0:
         raise ValueError("L'arrivee doit etre placee sur une case libre.")
     monstres = niveau.get("monstres", [])
-    if not isinstance(monstres, list) or len(monstres) > COLONNES_NIVEAU * LIGNES_NIVEAU:
+    if not isinstance(monstres, list) or len(monstres) > colonnes * rangees:
         raise ValueError("La liste des monstres est invalide.")
     positions_monstres: set[tuple[int, int]] = set()
     for monstre in monstres:
-        if (not isinstance(monstre, list) or len(monstre) != 2
+        if (not isinstance(monstre, list) or len(monstre) not in (2, 3)
                 or any(type(coord) is not int for coord in monstre)
-                or not (0 <= monstre[0] < COLONNES_NIVEAU)
-                or not (0 <= monstre[1] < LIGNES_NIVEAU)):
+                or not (0 <= monstre[0] < colonnes)
+                or not (0 <= monstre[1] < rangees)
+                or (len(monstre) == 3 and not 0 <= monstre[2] < len(OUTILS_MONSTRES))):
             raise ValueError("Un monstre est place hors de la carte.")
-        position = tuple(monstre)
+        position = tuple(monstre[:2])
         if position in positions_monstres or position in (tuple(depart), tuple(arrivee)):
             raise ValueError("Chaque monstre doit avoir une place libre et unique.")
         positions_monstres.add(position)
@@ -1253,9 +1657,12 @@ class JeuDefi:
         self.champ_nom = pygame.Rect(260, 644, 480, 34)
         self.bouton_theme = pygame.Rect(20, 644, 220, 34)
         self.parcours_disponibles: list[Path] = []
+        self.page_bibliotheque = 0
         self.lignes_bibliotheque = [pygame.Rect(170, 190 + i * 57, 660, 48) for i in range(7)]
-        self.bouton_nouveau = pygame.Rect(230, 610, 220, 54)
-        self.bouton_retour_bibliotheque = pygame.Rect(550, 610, 220, 54)
+        self.bouton_page_precedente = pygame.Rect(185, 610, 90, 54)
+        self.bouton_nouveau = pygame.Rect(285, 610, 210, 54)
+        self.bouton_page_suivante = pygame.Rect(505, 610, 90, 54)
+        self.bouton_retour_bibliotheque = pygame.Rect(605, 610, 210, 54)
         self.etat = "menu"
         self.code = nouveau_code()
         self.niveau = niveau_depart()
@@ -1270,6 +1677,11 @@ class JeuDefi:
         self.retour_resultat = "menu"
         self.case_selectionnee = SOL
         self.camera_editeur = 0
+        self.camera_editeur_y = 0
+        self.camera_parcours_y = 0.0
+        self.dialogue_taille = False
+        self.choix_colonnes = COLONNES_NIVEAU
+        self.choix_rangees = LIGNES_NIVEAU
         self.partage_code = ""
         self.message_partage = ""
         self.boutons_menu = [pygame.Rect(80 + index * 280, 270, 240, 74)
@@ -1298,6 +1710,24 @@ class JeuDefi:
             pygame.Rect(750, 16, 94, 36),
             pygame.Rect(849, 16, 94, 36),
         ]
+        self.bouton_taille = pygame.Rect(390, 16, 150, 36)
+        self.boite_taille = pygame.Rect(250, 190, 500, 290)
+        self.bouton_colonnes_moins10 = pygame.Rect(355, 287, 50, 46)
+        self.bouton_colonnes_moins = pygame.Rect(411, 287, 42, 46)
+        self.bouton_colonnes_plus = pygame.Rect(547, 287, 42, 46)
+        self.bouton_colonnes_plus10 = pygame.Rect(595, 287, 50, 46)
+        self.bouton_rangees_moins10 = pygame.Rect(355, 352, 50, 46)
+        self.bouton_rangees_moins = pygame.Rect(411, 352, 42, 46)
+        self.bouton_rangees_plus = pygame.Rect(547, 352, 42, 46)
+        self.bouton_rangees_plus10 = pygame.Rect(595, 352, 50, 46)
+        self.bouton_taille_appliquer = pygame.Rect(350, 420, 175, 48)
+        self.bouton_taille_annuler = pygame.Rect(535, 420, 115, 48)
+        self.boutons_navigation_editeur = {
+            "gauche": pygame.Rect(36, 588, 44, 38),
+            "droite": pygame.Rect(84, 588, 44, 38),
+            "haut": pygame.Rect(872, 542, 44, 38),
+            "bas": pygame.Rect(872, 584, 44, 38),
+        }
         self.bouton_copier = pygame.Rect(350, 516, 300, 54)
         self.bouton_partage_test = pygame.Rect(250, 590, 220, 52)
         self.bouton_partage_editer = pygame.Rect(490, 590, 260, 52)
@@ -1454,6 +1884,7 @@ class JeuDefi:
             int(self.joueur.x), int(DEBUT_CARTE.y + self.joueur.y), 28, 38
         )
         self.vitesse_x = 0.0
+        self.direction_toboggan = 1
         self.vitesse_y = 0.0
         self.sol = False
         self.coyote = 0.0
@@ -1494,16 +1925,31 @@ class JeuDefi:
         self.dernier_controle = depart
         self.controles_actives: set[tuple[int, int]] = set()
         self.ressort_verrouille = False
-        self.camera_parcours = 0.0
+        colonnes, rangees = dimensions_niveau(self.niveau)
+        self.camera_parcours = max(
+            0.0, min(
+                max(0, int(DEBUT_CARTE.x) + colonnes * TAILLE_CASE - (LARGEUR - 24)),
+                self.rect_joueur.centerx - LARGEUR * .42,
+            )
+        )
+        self.camera_parcours_y = max(
+            0.0, min(
+                max(0, int(DEBUT_CARTE.y) + rangees * TAILLE_CASE - ZONE_JEU.bottom),
+                self.rect_joueur.centery - ZONE_JEU.centery,
+            )
+        )
         self.paused = False
         self.etat = "parcours"
 
     def initialiser_monstres(self) -> None:
         """Place les monstres sur leur plateforme et definit leur trajet de patrouille."""
         cases = self.niveau["tiles"]
-        plateformes = (SOL, PLATEFORME)
-        self.monstres: list[dict[str, float]] = []
-        for colonne, ligne in self.niveau.get("monstres", []):
+        colonnes_niveau, _ = dimensions_niveau(self.niveau)
+        plateformes = (SOL, PLATEFORME, TOBOGGAN)
+        self.monstres: list[dict[str, float | int]] = []
+        for definition in self.niveau.get("monstres", []):
+            colonne, ligne = definition[:2]
+            type_monstre = definition[2] if len(definition) == 3 else MONSTRE_TRAQUEUR
             gauche = droite = colonne
             ligne_sol = ligne_support_monstre(self.niveau, colonne, ligne)
             en_patrouille = ligne_sol is not None and ligne_sol > 0
@@ -1512,7 +1958,7 @@ class JeuDefi:
                 while (gauche > 0 and cases[ligne_sol][gauche - 1] in plateformes
                        and cases[ligne_trajet][gauche - 1] not in (SOL, PLATEFORME, PIC)):
                     gauche -= 1
-                while (droite + 1 < COLONNES_NIVEAU
+                while (droite + 1 < colonnes_niveau
                        and cases[ligne_sol][droite + 1] in plateformes
                        and cases[ligne_trajet][droite + 1] not in (SOL, PLATEFORME, PIC)):
                     droite += 1
@@ -1528,6 +1974,7 @@ class JeuDefi:
                 "x": float(x_depart), "y": float(y_monstre),
                 "min_x": float(minimum), "max_x": float(maximum),
                 "direction": 1.0 if colonne % 2 == 0 else -1.0,
+                "type": type_monstre,
             })
 
     def editer_nouveau_niveau(self, identifiant: str | None = None) -> None:
@@ -1535,7 +1982,9 @@ class JeuDefi:
         self.dossier_parcours.mkdir(parents=True, exist_ok=True)
         if identifiant is None:
             identifiant = "jeu-" + secrets.token_hex(3)
-            self.niveau = niveau_depart()
+            self.niveau = niveau_vide()
+            self.dialogue_taille = False
+            self.choix_colonnes, self.choix_rangees = dimensions_niveau(self.niveau)
         else:
             chemin = self.dossier_parcours / f"{identifiant}.json"
             try:
@@ -1543,6 +1992,8 @@ class JeuDefi:
             except (OSError, ValueError) as erreur:
                 self.erreur = f"Parcours impossible a charger : {erreur}"
                 return
+            self.dialogue_taille = False
+            self.choix_colonnes, self.choix_rangees = dimensions_niveau(self.niveau)
         self.id_parcours = identifiant
         fichier_nom = self.dossier_parcours / f"{identifiant}.name"
         if fichier_nom.exists():
@@ -1554,12 +2005,72 @@ class JeuDefi:
             self.nom_parcours = "Mon parcours" if identifiant.startswith("jeu-") else f"Parcours {identifiant}"
         self.saisie_nom_active = False
         self.camera_editeur = 0
+        self.camera_editeur_y = 0
         self.niveau.setdefault("monstres", [])
         self.case_selectionnee = SOL
         self.historique_niveau = []
         self.refaire_niveau = []
         self.sauvegarder_brouillon()
         self.etat = "editeur"
+
+    def redimensionner_niveau(self, colonnes: int, rangees: int) -> None:
+        """Agrandit ou rogne la grille en conservant les elements visibles."""
+        colonnes = max(COLONNES_NIVEAU_MIN, min(COLONNES_NIVEAU_MAX, colonnes))
+        rangees = max(LIGNES_NIVEAU_MIN, min(LIGNES_NIVEAU_MAX, rangees))
+        anciennes_cases = self.niveau["tiles"]
+        ancienne_hauteur = len(anciennes_cases)
+        ancienne_largeur = len(anciennes_cases[0])
+        cases = [[0 for _ in range(colonnes)] for _ in range(rangees)]
+        for ligne in range(min(rangees, ancienne_hauteur)):
+            cases[ligne][:min(colonnes, ancienne_largeur)] = anciennes_cases[ligne][:min(colonnes, ancienne_largeur)]
+
+        depart_ancien = self.niveau["start"]
+        arrivee_ancienne = self.niveau["goal"]
+        depart = [min(colonnes - 1, depart_ancien[0]),
+                  min(rangees - 2, depart_ancien[1])]
+        arrivee = [min(colonnes - 1, arrivee_ancienne[0]),
+                   min(rangees - 1, arrivee_ancienne[1])]
+        if arrivee == depart:
+            arrivee = [colonnes - 1 if depart[0] != colonnes - 1 else 0,
+                       min(rangees - 1, depart[1])]
+        cases[depart[1]][depart[0]] = 0
+        cases[arrivee[1]][arrivee[0]] = 0
+
+        monstres = []
+        positions = {tuple(depart), tuple(arrivee)}
+        for monstre in self.niveau.get("monstres", []):
+            if (monstre[0] < colonnes and monstre[1] < rangees
+                    and tuple(monstre[:2]) not in positions):
+                monstres.append(monstre[:])
+                positions.add(tuple(monstre[:2]))
+        self.niveau["tiles"] = cases
+        self.niveau["start"] = depart
+        self.niveau["goal"] = arrivee
+        self.niveau["monstres"] = monstres
+        self.camera_editeur = max(
+            0, min(self.camera_editeur, max(0, colonnes * TAILLE_CASE - (LARGEUR - 48)))
+        )
+        self.camera_editeur_y = max(
+            0, min(self.camera_editeur_y,
+                   max(0, rangees * TAILLE_CASE - ZONE_JEU.height))
+        )
+
+    def ajuster_taille_choisie(self, largeur: int = 0, hauteur: int = 0) -> None:
+        self.choix_colonnes = max(
+            COLONNES_NIVEAU_MIN,
+            min(COLONNES_NIVEAU_MAX, self.choix_colonnes + largeur),
+        )
+        self.choix_rangees = max(
+            LIGNES_NIVEAU_MIN,
+            min(LIGNES_NIVEAU_MAX, self.choix_rangees + hauteur),
+        )
+
+    def appliquer_taille_choisie(self) -> None:
+        if (self.choix_colonnes, self.choix_rangees) != dimensions_niveau(self.niveau):
+            self.memoriser_niveau()
+            self.redimensionner_niveau(self.choix_colonnes, self.choix_rangees)
+            self.sauvegarder_brouillon()
+        self.dialogue_taille = False
 
     def sauvegarder_brouillon(self) -> bool:
         try:
@@ -1584,7 +2095,8 @@ class JeuDefi:
             self.parcours_disponibles = sorted(
                 self.dossier_parcours.glob("*.json"),
                 key=lambda chemin: chemin.stat().st_mtime, reverse=True,
-            )[:7]
+            )
+            self.page_bibliotheque = 0
             self.erreur = ""
         except OSError as erreur:
             self.parcours_disponibles = []
@@ -1611,55 +2123,51 @@ class JeuDefi:
 
     def changer_case(self, colonne: int, ligne: int, type_case: int,
                      memoriser: bool = False) -> None:
-        if not (0 <= colonne < COLONNES_NIVEAU and 0 <= ligne < LIGNES_NIVEAU):
+        colonnes, rangees = dimensions_niveau(self.niveau)
+        if not (0 <= colonne < colonnes and 0 <= ligne < rangees):
             return
         point = [colonne, ligne]
         monstres = self.niveau.setdefault("monstres", [])
-        if type_case == OUTIL_MONSTRE:
-            if point in (self.niveau["start"], self.niveau["goal"]) or point in monstres:
+        if type_case in OUTILS_MONSTRES:
+            if (point in (self.niveau["start"], self.niveau["goal"])
+                    or any(monstre[:2] == point for monstre in monstres)):
                 return
             if memoriser:
                 self.memoriser_niveau()
-            monstres.append(point)
+            monstres.append([*point, OUTILS_MONSTRES.index(type_case)])
             self.sauvegarder_brouillon()
             return
         if type_case in (OUTIL_DEPART, OUTIL_ARRIVEE):
             nom = "start" if type_case == OUTIL_DEPART else "goal"
-            if nom == "start" and ligne >= LIGNES_NIVEAU - 1:
-                ligne = LIGNES_NIVEAU - 2
+            if nom == "start" and ligne >= rangees - 1:
+                ligne = rangees - 2
                 point = [colonne, ligne]
             if (self.niveau[nom] == point
                     or self.niveau["start" if nom == "goal" else "goal"] == point
-                    or point in monstres):
+                    or any(monstre[:2] == point for monstre in monstres)):
                 return
             if memoriser:
                 self.memoriser_niveau()
             self.niveau[nom] = point
-            if type_case == OUTIL_DEPART:
-                self.niveau["tiles"][ligne][colonne] = 0
-                dessous = ligne + 1
-                if (dessous < LIGNES_NIVEAU
-                        and self.niveau["tiles"][dessous][colonne] not in (SOL, PLATEFORME)):
-                    self.niveau["tiles"][dessous][colonne] = SOL
-            else:
-                self.niveau["tiles"][ligne][colonne] = 0
+            self.niveau["tiles"][ligne][colonne] = 0
             self.sauvegarder_brouillon()
             return
         if point in (self.niveau["start"], self.niveau["goal"]):
             return
-        if type_case == 0 and point in monstres:
+        monstre_present = next((monstre for monstre in monstres
+                                if monstre[:2] == point), None)
+        if type_case == 0 and monstre_present is not None:
             if memoriser:
                 self.memoriser_niveau()
-            monstres.remove(point)
+            monstres.remove(monstre_present)
             self.sauvegarder_brouillon()
             return
-        monstre_present = point in monstres
-        if self.niveau["tiles"][ligne][colonne] == type_case and not monstre_present:
+        if self.niveau["tiles"][ligne][colonne] == type_case and monstre_present is None:
             return
         if memoriser:
             self.memoriser_niveau()
-        if monstre_present:
-            monstres.remove(point)
+        if monstre_present is not None:
+            monstres.remove(monstre_present)
         self.niveau["tiles"][ligne][colonne] = type_case
         self.sauvegarder_brouillon()
 
@@ -1815,6 +2323,8 @@ class JeuDefi:
             if ancienne_action in {"gauche", "droite", "haut", "bas", "saut", "course", "esquive"}:
                 self.touches_tactiles[cle] = self.action_tactile(position) or ""
             elif self.etat == "editeur" and ancienne_action == "interface":
+                if self.dialogue_taille:
+                    return True
                 self.editer_case_sous_souris(position, self.case_selectionnee)
             return True
         if evenement.type == getattr(pygame, "FINGERUP", -1):
@@ -1929,17 +2439,19 @@ class JeuDefi:
 
     def cases_solides(self, rect: pygame.Rect) -> list[tuple[int, int, int]]:
         cases = self.niveau["tiles"]
+        colonnes_niveau, rangees_niveau = dimensions_niveau(self.niveau)
         gauche = max(0, int((rect.left - DEBUT_CARTE.x) // TAILLE_CASE))
-        droite = min(COLONNES_NIVEAU - 1,
+        droite = min(colonnes_niveau - 1,
                      int((rect.right - DEBUT_CARTE.x) // TAILLE_CASE))
         haut = max(0, (rect.top - int(DEBUT_CARTE.y)) // TAILLE_CASE)
-        bas = min(LIGNES_NIVEAU - 1,
+        bas = min(rangees_niveau - 1,
                   (rect.bottom - int(DEBUT_CARTE.y)) // TAILLE_CASE)
         trouvees: list[tuple[int, int, int]] = []
         for ligne in range(haut, bas + 1):
             for colonne in range(gauche, droite + 1):
                 type_case = cases[ligne][colonne]
-                if type_case in (SOL, PLATEFORME, PIC, POINT_CONTROLE, RESSORT, GEMME, COEUR):
+                if type_case in (SOL, PLATEFORME, PIC, POINT_CONTROLE, RESSORT,
+                                 GEMME, COEUR, TOBOGGAN):
                     trouvees.append((colonne, ligne, type_case))
         return trouvees
 
@@ -1951,6 +2463,7 @@ class JeuDefi:
             int(DEBUT_CARTE.y) + point[1] * TAILLE_CASE + 5,
         )
         self.vitesse_x = 0.0
+        self.direction_toboggan = 1
         self.vitesse_y = 0.0
         self.jump_buffer = 0.0
         self.invulnerable = 1.0
@@ -2003,41 +2516,60 @@ class JeuDefi:
             int(touches[pygame.K_d] or touches[pygame.K_RIGHT] or "droite" in actions_tactiles)
             - int(touches[pygame.K_q] or touches[pygame.K_a] or touches[pygame.K_LEFT] or "gauche" in actions_tactiles)
         )
-        ancienne_gauche = self.rect_joueur.left
-        ancienne_droite = self.rect_joueur.right
-        ancienne_x = self.rect_joueur.x
+        sonde_pieds = pygame.Rect(
+            self.rect_joueur.left + 3, self.rect_joueur.bottom - 1,
+            self.rect_joueur.width - 6, 4,
+        )
+        sur_toboggan = any(
+            type_case == TOBOGGAN
+            for _, _, type_case in self.cases_solides(sonde_pieds)
+        )
+        if sur_toboggan:
+            if direction_x:
+                self.direction_toboggan = direction_x
+            elif abs(self.vitesse_x) > 35:
+                self.direction_toboggan = 1 if self.vitesse_x > 0 else -1
         course = touches[pygame.K_LSHIFT] or touches[pygame.K_RSHIFT] or "course" in actions_tactiles
-        vitesse_max = 360 if course else 270
-        vitesse_cible = direction_x * vitesse_max
+        vitesse_max = 520 if sur_toboggan else (360 if course else 270)
+        vitesse_cible = (
+            self.direction_toboggan * vitesse_max
+            if sur_toboggan and not direction_x else direction_x * vitesse_max
+        )
         if direction_x:
             acceleration = 2300 if self.sol else 1150
         else:
             acceleration = 2600 if self.sol else 260
         ecart_vitesse = vitesse_cible - self.vitesse_x
         self.vitesse_x += max(-acceleration * dt, min(acceleration * dt, ecart_vitesse))
-        self.rect_joueur.x += round(self.vitesse_x * dt)
-        self.rect_joueur.x = max(int(DEBUT_CARTE.x), min(
-            int(DEBUT_CARTE.x) + COLONNES_NIVEAU * TAILLE_CASE - self.rect_joueur.width,
-            self.rect_joueur.x,
-        ))
-        deplacement_x = self.rect_joueur.x - ancienne_x
-        for colonne, ligne, type_case in self.cases_solides(self.rect_joueur):
-            if type_case == PIC:
+        deplacement_x = round(self.vitesse_x * dt)
+        nombre_pas_x = max(1, math.ceil(abs(deplacement_x) / 8))
+        x_initial = self.rect_joueur.x
+        limite_gauche = int(DEBUT_CARTE.x)
+        colonnes_niveau, rangees_niveau = dimensions_niveau(self.niveau)
+        limite_droite = (limite_gauche + colonnes_niveau * TAILLE_CASE
+                         - self.rect_joueur.width)
+        for index in range(nombre_pas_x):
+            if self.vitesse_x == 0:
+                break
+            ancien_x = self.rect_joueur.x
+            cible_x = x_initial + round(deplacement_x * (index + 1) / nombre_pas_x)
+            self.rect_joueur.x = max(limite_gauche, min(limite_droite, cible_x))
+            pas_reel = self.rect_joueur.x - ancien_x
+            if pas_reel == 0:
                 continue
-            bloc = pygame.Rect(int(DEBUT_CARTE.x) + colonne * TAILLE_CASE,
-                               int(DEBUT_CARTE.y) + ligne * TAILLE_CASE,
-                               TAILLE_CASE, TAILLE_CASE)
-            if type_case == SOL and self.rect_joueur.colliderect(bloc):
-                if deplacement_x > 0:
-                    self.rect_joueur.right = bloc.left
+            for colonne, ligne, type_case in self.cases_solides(self.rect_joueur):
+                if type_case not in (SOL, PLATEFORME, TOBOGGAN):
+                    continue
+                bloc = pygame.Rect(int(DEBUT_CARTE.x) + colonne * TAILLE_CASE,
+                                   int(DEBUT_CARTE.y) + ligne * TAILLE_CASE,
+                                   TAILLE_CASE, TAILLE_CASE)
+                if self.rect_joueur.colliderect(bloc):
+                    if pas_reel > 0:
+                        self.rect_joueur.right = bloc.left
+                    else:
+                        self.rect_joueur.left = bloc.right
                     self.vitesse_x = 0.0
-                elif deplacement_x < 0:
-                    self.rect_joueur.left = bloc.right
-                    self.vitesse_x = 0.0
-                elif ancienne_droite <= bloc.left:
-                    self.rect_joueur.right = bloc.left
-                elif ancienne_gauche >= bloc.right:
-                    self.rect_joueur.left = bloc.right
+                    break
 
         if self.jump_buffer > 0 and (self.sol or self.coyote > 0):
             self.vitesse_y = -510
@@ -2048,36 +2580,50 @@ class JeuDefi:
         # Relacher le saut reduit sa hauteur, comme dans les jeux de plateforme classiques.
         saut_maintenu = (touches[pygame.K_SPACE] or touches[pygame.K_UP] or touches[pygame.K_w] or touches[pygame.K_z] or "saut" in actions_tactiles)
         gravite = 900 if self.vitesse_y < 0 and saut_maintenu else 1450
-        ancienne_bas = self.rect_joueur.bottom
         self.vitesse_y = min(780, self.vitesse_y + gravite * dt)
-        self.rect_joueur.y += round(self.vitesse_y * dt)
+        deplacement_y = round(self.vitesse_y * dt)
+        nombre_pas_y = max(1, math.ceil(abs(deplacement_y) / 8))
+        y_initial = self.rect_joueur.y
         etait_sol = self.sol
         self.sol = False
-        for colonne, ligne, type_case in self.cases_solides(self.rect_joueur):
-            if type_case in (PIC, RESSORT, POINT_CONTROLE, GEMME, COEUR):
-                continue
-            bloc = pygame.Rect(int(DEBUT_CARTE.x) + colonne * TAILLE_CASE,
-                               int(DEBUT_CARTE.y) + ligne * TAILLE_CASE,
-                               TAILLE_CASE, TAILLE_CASE)
-            chevauche_horizontal = (
-                self.rect_joueur.right > bloc.left
-                and self.rect_joueur.left < bloc.right
-            )
-            if (self.vitesse_y >= 0 and chevauche_horizontal
-                    and ancienne_bas <= bloc.top and self.rect_joueur.bottom >= bloc.top):
-                self.rect_joueur.bottom = bloc.top
-                self.vitesse_y = 0
-                self.sol = True
-                if not etait_sol:
-                    self.coyote = 0.1
-                    self.ajouter_particules(
-                        pygame.Vector2(self.rect_joueur.centerx, self.rect_joueur.bottom),
-                        (190, 200, 210), 5,
-                    )
-            elif (type_case == SOL and self.vitesse_y < 0
-                  and self.rect_joueur.colliderect(bloc)):
-                self.rect_joueur.top = bloc.bottom
-                self.vitesse_y = 0
+        for index in range(nombre_pas_y):
+            if self.vitesse_y == 0:
+                break
+            ancien_bas = self.rect_joueur.bottom
+            ancien_y = self.rect_joueur.y
+            cible_y = y_initial + round(deplacement_y * (index + 1) / nombre_pas_y)
+            self.rect_joueur.y = cible_y
+            atterri = False
+            for colonne, ligne, type_case in self.cases_solides(self.rect_joueur):
+                if type_case in (PIC, RESSORT, POINT_CONTROLE, GEMME, COEUR):
+                    continue
+                bloc = pygame.Rect(int(DEBUT_CARTE.x) + colonne * TAILLE_CASE,
+                                   int(DEBUT_CARTE.y) + ligne * TAILLE_CASE,
+                                   TAILLE_CASE, TAILLE_CASE)
+                chevauche_horizontal = (
+                    self.rect_joueur.right > bloc.left
+                    and self.rect_joueur.left < bloc.right
+                )
+                if (self.vitesse_y >= 0 and chevauche_horizontal
+                        and ancien_bas <= bloc.top and self.rect_joueur.bottom >= bloc.top):
+                    self.rect_joueur.bottom = bloc.top
+                    self.vitesse_y = 0.0
+                    self.sol = True
+                    atterri = True
+                    if not etait_sol:
+                        self.coyote = 0.1
+                        self.ajouter_particules(
+                            pygame.Vector2(self.rect_joueur.centerx, self.rect_joueur.bottom),
+                            (190, 200, 210), 5,
+                        )
+                    break
+                elif (type_case in (SOL, TOBOGGAN) and self.vitesse_y < 0
+                      and self.rect_joueur.colliderect(bloc)):
+                    self.rect_joueur.top = bloc.bottom
+                    self.vitesse_y = 0.0
+                    break
+            if atterri or self.vitesse_y == 0 or self.rect_joueur.y == ancien_y:
+                break
         if self.sol and etait_sol:
             self.coyote = 0.1
 
@@ -2156,17 +2702,24 @@ class JeuDefi:
                             TAILLE_CASE, TAILLE_CASE + 22)
         if self.rect_joueur.colliderect(porte):
             self.terminer_parcours(True)
-        elif self.rect_joueur.top > HAUTEUR + 50:
+        elif self.rect_joueur.top > int(DEBUT_CARTE.y) + rangees_niveau * TAILLE_CASE + 120:
             self.reapparaitre()
         if self.etat != "parcours":
             return
-        camera_max = int(DEBUT_CARTE.x) + COLONNES_NIVEAU * TAILLE_CASE - (LARGEUR - 24)
+        camera_max = int(DEBUT_CARTE.x) + colonnes_niveau * TAILLE_CASE - (LARGEUR - 24)
         anticipation = max(-42, min(42, self.vitesse_x * .12))
         camera_cible = max(0.0, min(
             camera_max, self.rect_joueur.centerx - LARGEUR * .42 + anticipation
         ))
+        camera_max_y = max(
+            0, int(DEBUT_CARTE.y) + rangees_niveau * TAILLE_CASE - ZONE_JEU.bottom
+        )
+        camera_cible_y = max(
+            0.0, min(camera_max_y, self.rect_joueur.centery - ZONE_JEU.centery)
+        )
         inertie_camera = 1 - math.exp(-8 * dt)
         self.camera_parcours += (camera_cible - self.camera_parcours) * inertie_camera
+        self.camera_parcours_y += (camera_cible_y - self.camera_parcours_y) * inertie_camera
 
     def creer_projectile(self) -> None:
         bord = self.aleatoire.randrange(4)
@@ -2231,7 +2784,7 @@ class JeuDefi:
                 for caractere in evenement.text:
                     if self.etat == "menu" and self.saisie_active:
                         caractere = caractere.upper()
-                        if (caractere in CODE_ALPHABET or caractere in "-_") and len(self.saisie_code) < 2000:
+                        if (caractere.upper() in CODE_ALPHABET or caractere in "-_+/=") and len(self.saisie_code) < 60000:
                             self.saisie_code += caractere
                             self.erreur = ""
                     elif self.etat == "editeur" and self.saisie_nom_active:
@@ -2254,8 +2807,12 @@ class JeuDefi:
                 if self.etat in ("jeu", "parcours"):
                     self.paused = not self.paused
                 elif self.etat == "editeur":
-                    self.sauvegarder_brouillon()
-                    self.etat = "menu"
+                    if self.dialogue_taille:
+                        self.choix_colonnes, self.choix_rangees = dimensions_niveau(self.niveau)
+                        self.dialogue_taille = False
+                    else:
+                        self.sauvegarder_brouillon()
+                        self.etat = "menu"
                 elif self.etat == "parcours_menu":
                     self.etat = "creation"
                 elif self.etat in ("bibliotheque", "creation"):
@@ -2268,7 +2825,7 @@ class JeuDefi:
                 if evenement.key == pygame.K_v and evenement.mod & pygame.KMOD_CTRL:
                     contenu = self.lire_presse_papier()
                     if contenu:
-                        self.saisie_code = contenu[:2000]
+                        self.saisie_code = contenu[:60000]
                         self.erreur = ""
                 elif evenement.key == pygame.K_BACKSPACE and self.saisie_active:
                     self.saisie_code = self.saisie_code[:-1]
@@ -2276,11 +2833,11 @@ class JeuDefi:
                 elif evenement.key == pygame.K_RETURN and self.saisie_active:
                     self.jouer_code_saisi()
                 elif self.saisie_active and not self.clavier_tactile_actif and evenement.unicode and evenement.unicode.upper() in CODE_ALPHABET:
-                    if len(self.saisie_code) < 2000:
+                    if len(self.saisie_code) < 60000:
                         self.saisie_code += evenement.unicode
                         self.erreur = ""
-                elif self.saisie_active and not self.clavier_tactile_actif and evenement.unicode in "-_":
-                    if len(self.saisie_code) < 2000:
+                elif self.saisie_active and not self.clavier_tactile_actif and evenement.unicode in "-_+/=":
+                    if len(self.saisie_code) < 60000:
                         self.saisie_code += evenement.unicode
             elif self.etat == "jeu":
                 if evenement.key == pygame.K_p:
@@ -2294,7 +2851,16 @@ class JeuDefi:
                 elif evenement.key == pygame.K_p:
                     self.paused = not self.paused
             elif self.etat == "editeur":
-                if self.saisie_nom_active and evenement.key == pygame.K_RETURN:
+                if self.dialogue_taille:
+                    if evenement.key == pygame.K_ESCAPE:
+                        self.dialogue_taille = False
+                    elif evenement.key in (pygame.K_LEFT, pygame.K_RIGHT):
+                        self.ajuster_taille_choisie(largeur=-1 if evenement.key == pygame.K_LEFT else 1)
+                    elif evenement.key in (pygame.K_DOWN, pygame.K_UP):
+                        self.ajuster_taille_choisie(hauteur=-1 if evenement.key == pygame.K_DOWN else 1)
+                    elif evenement.key == pygame.K_RETURN:
+                        self.appliquer_taille_choisie()
+                elif self.saisie_nom_active and evenement.key == pygame.K_RETURN:
                     self.saisie_nom_active = False
                     self.sauvegarder_brouillon()
                 elif self.saisie_nom_active and evenement.key == pygame.K_BACKSPACE:
@@ -2322,6 +2888,7 @@ class JeuDefi:
                         pygame.K_5: RESSORT,
                         pygame.K_6: GEMME,
                         pygame.K_7: COEUR,
+                        pygame.K_t: TOBOGGAN,
                         pygame.K_m: OUTIL_MONSTRE,
                         pygame.K_8: OUTIL_DEPART,
                         pygame.K_9: OUTIL_ARRIVEE,
@@ -2380,17 +2947,71 @@ class JeuDefi:
                 elif self.bouton_retour_parcours.collidepoint(evenement.pos):
                     self.etat = "creation"
             elif self.etat == "bibliotheque":
-                if self.bouton_nouveau.collidepoint(evenement.pos):
+                nombre_pages = max(1, math.ceil(len(self.parcours_disponibles) / len(self.lignes_bibliotheque)))
+                if (self.bouton_page_precedente.collidepoint(evenement.pos)
+                        and self.page_bibliotheque > 0):
+                    self.page_bibliotheque -= 1
+                elif (self.bouton_page_suivante.collidepoint(evenement.pos)
+                        and self.page_bibliotheque + 1 < nombre_pages):
+                    self.page_bibliotheque += 1
+                elif self.bouton_nouveau.collidepoint(evenement.pos):
                     self.editer_nouveau_niveau()
                 elif self.bouton_retour_bibliotheque.collidepoint(evenement.pos):
                     self.etat = "menu"
                 else:
-                    for chemin, rect in zip(self.parcours_disponibles, self.lignes_bibliotheque):
+                    debut_page = self.page_bibliotheque * len(self.lignes_bibliotheque)
+                    parcours_page = self.parcours_disponibles[
+                        debut_page:debut_page + len(self.lignes_bibliotheque)
+                    ]
+                    for chemin, rect in zip(parcours_page, self.lignes_bibliotheque):
                         if rect.collidepoint(evenement.pos):
                             self.editer_nouveau_niveau(chemin.stem)
                             break
             elif self.etat == "editeur":
-                if self.bouton_theme.collidepoint(evenement.pos):
+                if self.dialogue_taille:
+                    if self.bouton_colonnes_moins10.collidepoint(evenement.pos):
+                        self.ajuster_taille_choisie(largeur=-10)
+                    elif self.bouton_colonnes_moins.collidepoint(evenement.pos):
+                        self.ajuster_taille_choisie(largeur=-1)
+                    elif self.bouton_colonnes_plus.collidepoint(evenement.pos):
+                        self.ajuster_taille_choisie(largeur=1)
+                    elif self.bouton_colonnes_plus10.collidepoint(evenement.pos):
+                        self.ajuster_taille_choisie(largeur=10)
+                    elif self.bouton_rangees_moins10.collidepoint(evenement.pos):
+                        self.ajuster_taille_choisie(hauteur=-10)
+                    elif self.bouton_rangees_moins.collidepoint(evenement.pos):
+                        self.ajuster_taille_choisie(hauteur=-1)
+                    elif self.bouton_rangees_plus.collidepoint(evenement.pos):
+                        self.ajuster_taille_choisie(hauteur=1)
+                    elif self.bouton_rangees_plus10.collidepoint(evenement.pos):
+                        self.ajuster_taille_choisie(hauteur=10)
+                    elif self.bouton_taille_appliquer.collidepoint(evenement.pos):
+                        self.appliquer_taille_choisie()
+                    elif self.bouton_taille_annuler.collidepoint(evenement.pos):
+                        self.choix_colonnes, self.choix_rangees = dimensions_niveau(self.niveau)
+                        self.dialogue_taille = False
+                elif (direction_camera := next(
+                        (direction for direction, rect in self.boutons_navigation_editeur.items()
+                         if rect.collidepoint(evenement.pos)), None)) is not None:
+                    colonnes, rangees = dimensions_niveau(self.niveau)
+                    if direction_camera == "gauche":
+                        self.camera_editeur = max(0, self.camera_editeur - 3 * TAILLE_CASE)
+                    elif direction_camera == "droite":
+                        self.camera_editeur = min(
+                            max(0, colonnes * TAILLE_CASE - (LARGEUR - 48)),
+                            self.camera_editeur + 3 * TAILLE_CASE,
+                        )
+                    elif direction_camera == "haut":
+                        self.camera_editeur_y = max(0, self.camera_editeur_y - 3 * TAILLE_CASE)
+                    else:
+                        self.camera_editeur_y = min(
+                            max(0, rangees * TAILLE_CASE - ZONE_JEU.height),
+                            self.camera_editeur_y + 3 * TAILLE_CASE,
+                        )
+                elif self.bouton_taille.collidepoint(evenement.pos):
+                    self.choix_colonnes, self.choix_rangees = dimensions_niveau(self.niveau)
+                    self.dialogue_taille = True
+                elif self.bouton_theme.collidepoint(evenement.pos):
                     self.memoriser_niveau()
                     index_theme = THEMES_PARCOURS.index(self.niveau.get("theme", "prairie"))
                     self.niveau["theme"] = THEMES_PARCOURS[
@@ -2452,31 +3073,57 @@ class JeuDefi:
                 elif self.bouton_menu.collidepoint(evenement.pos):
                     self.etat = self.retour_resultat
         if self.etat == "editeur" and evenement.type == pygame.MOUSEBUTTONDOWN:
+            if self.dialogue_taille:
+                return True
             if evenement.button == 3:
                 self.editer_case_sous_souris(evenement.pos, 0)
             elif evenement.button == 4:
-                self.camera_editeur = max(0, self.camera_editeur - 3 * TAILLE_CASE)
+                self.camera_editeur_y = max(0, self.camera_editeur_y - 3 * TAILLE_CASE)
             elif evenement.button == 5:
-                self.camera_editeur = min(
-                    COLONNES_NIVEAU * TAILLE_CASE - (LARGEUR - 48),
-                    self.camera_editeur + 3 * TAILLE_CASE,
+                _, rangees = dimensions_niveau(self.niveau)
+                self.camera_editeur_y = min(
+                    max(0, rangees * TAILLE_CASE - ZONE_JEU.height),
+                    self.camera_editeur_y + 3 * TAILLE_CASE,
                 )
         if self.etat == "editeur" and evenement.type == pygame.MOUSEWHEEL:
-            self.camera_editeur = max(0, min(
-                COLONNES_NIVEAU * TAILLE_CASE - (LARGEUR - 48),
-                self.camera_editeur - evenement.y * 3 * TAILLE_CASE,
-            ))
+            if self.dialogue_taille:
+                return True
+            if getattr(evenement, "mod", 0) & pygame.KMOD_SHIFT:
+                colonnes, _ = dimensions_niveau(self.niveau)
+                self.camera_editeur = max(0, min(
+                    colonnes * TAILLE_CASE - (LARGEUR - 48),
+                    self.camera_editeur - evenement.y * 3 * TAILLE_CASE,
+                ))
+            else:
+                _, rangees = dimensions_niveau(self.niveau)
+                self.camera_editeur_y = max(0, min(
+                    rangees * TAILLE_CASE - ZONE_JEU.height,
+                    self.camera_editeur_y - evenement.y * 3 * TAILLE_CASE,
+                ))
         if self.etat == "editeur" and evenement.type == pygame.MOUSEMOTION:
+            if self.dialogue_taille:
+                return True
             if pygame.mouse.get_pressed()[0] and evenement.pos[1] >= int(DEBUT_CARTE.y):
                 self.editer_case_sous_souris(evenement.pos, self.case_selectionnee)
             elif pygame.mouse.get_pressed()[2] and evenement.pos[1] >= int(DEBUT_CARTE.y):
                 self.editer_case_sous_souris(evenement.pos, 0)
         if self.etat == "editeur" and evenement.type == pygame.KEYDOWN:
+            if self.dialogue_taille:
+                return True
             if evenement.key == pygame.K_a:
                 self.camera_editeur = max(0, self.camera_editeur - 100)
+            elif evenement.key in (pygame.K_w, pygame.K_UP):
+                self.camera_editeur_y = max(0, self.camera_editeur_y - 100)
+            elif evenement.key in (pygame.K_s, pygame.K_DOWN):
+                _, rangees = dimensions_niveau(self.niveau)
+                self.camera_editeur_y = min(
+                    max(0, rangees * TAILLE_CASE - ZONE_JEU.height),
+                    self.camera_editeur_y + 100,
+                )
             elif evenement.key == pygame.K_d:
+                colonnes, _ = dimensions_niveau(self.niveau)
                 self.camera_editeur = min(
-                    COLONNES_NIVEAU * TAILLE_CASE - (LARGEUR - 48),
+                    max(0, colonnes * TAILLE_CASE - (LARGEUR - 48)),
                     self.camera_editeur + 100,
                 )
         return True
@@ -2485,13 +3132,16 @@ class JeuDefi:
         x, y = position
         if not (24 <= x < LARGEUR - 24 and int(DEBUT_CARTE.y) <= y < 640):
             return
+        if any(rect.collidepoint(position)
+               for rect in self.boutons_navigation_editeur.values()):
+            return
         colonne = (x - 24 + self.camera_editeur) // TAILLE_CASE
-        ligne = (y - int(DEBUT_CARTE.y)) // TAILLE_CASE
+        ligne = (y - int(DEBUT_CARTE.y) + self.camera_editeur_y) // TAILLE_CASE
         self.changer_case(colonne, ligne, type_case, memoriser=True)
 
     def jouer_code_saisi(self) -> None:
         code = self.saisie_code.strip()
-        if code.upper().startswith(("P1-", "P2-", "P3-", "P4-")):
+        if code.upper().startswith(("P1-", "P2-", "P3-", "P4-", "P5-", "P6-", "P7-")):
             try:
                 niveau = decoder_niveau(code)
             except ValueError as erreur:
@@ -2692,7 +3342,11 @@ class JeuDefi:
         texte(self.ecran, self.police_petite, "Choisis un parcours pour le reprendre. Les changements sont sauvegardes automatiquement.",
               (LARGEUR // 2, 148), GRIS, True)
         souris = pygame.mouse.get_pos()
-        for chemin, rect in zip(self.parcours_disponibles, self.lignes_bibliotheque):
+        debut_page = self.page_bibliotheque * len(self.lignes_bibliotheque)
+        parcours_page = self.parcours_disponibles[
+            debut_page:debut_page + len(self.lignes_bibliotheque)
+        ]
+        for chemin, rect in zip(parcours_page, self.lignes_bibliotheque):
             try:
                 nom = chemin.with_suffix(".name").read_text(encoding="utf-8").strip()
             except OSError:
@@ -2702,6 +3356,16 @@ class JeuDefi:
         if not self.parcours_disponibles:
             texte(self.ecran, self.police, "Aucun parcours sauvegarde pour l'instant.",
                   (LARGEUR // 2, 260), GRIS, True)
+        nombre_pages = max(1, math.ceil(len(self.parcours_disponibles) / len(self.lignes_bibliotheque)))
+        texte(self.ecran, self.police_petite,
+              f"PAGE {self.page_bibliotheque + 1}/{nombre_pages} - {len(self.parcours_disponibles)} PARCOURS",
+              (LARGEUR // 2, 592), GRIS, True)
+        if self.page_bibliotheque > 0:
+            dessiner_bouton(self.ecran, self.bouton_page_precedente, "PRECEDENT",
+                            self.police_petite, self.bouton_page_precedente.collidepoint(souris), CYAN)
+        if self.page_bibliotheque + 1 < nombre_pages:
+            dessiner_bouton(self.ecran, self.bouton_page_suivante, "SUIVANT",
+                            self.police_petite, self.bouton_page_suivante.collidepoint(souris), CYAN)
         dessiner_bouton(self.ecran, self.bouton_nouveau, "NOUVEAU PARCOURS", self.police_petite,
                         self.bouton_nouveau.collidepoint(souris), VERT)
         dessiner_bouton(self.ecran, self.bouton_retour_bibliotheque, "RETOUR AU MENU", self.police_petite,
@@ -2716,7 +3380,8 @@ class JeuDefi:
             0: (95, 111, 140), SOL: (107, 180, 123),
             PLATEFORME: (101, 156, 222), PIC: ROUGE,
             POINT_CONTROLE: VERT, RESSORT: JAUNE, GEMME: CYAN,
-            COEUR: (255, 93, 137), OUTIL_MONSTRE: (154, 91, 204),
+            COEUR: (255, 93, 137), TOBOGGAN: (160, 229, 247),
+            OUTIL_MONSTRE: (154, 91, 204),
             OUTIL_DEPART: VERT, OUTIL_ARRIVEE: JAUNE,
         }
         souris = pygame.mouse.get_pos()
@@ -2730,21 +3395,29 @@ class JeuDefi:
         for (rect, type_case) in self.palette_editeur:
             actif = self.case_selectionnee == type_case
             couleur = couleurs[type_case]
-            if theme != "prairie" and type_case in (SOL, PLATEFORME):
+            if type_case in (SOL, PLATEFORME, PIC):
                 couleur = ACCENTS_THEMES[theme]
             pygame.draw.rect(self.ecran, PANNEAU, rect, border_radius=8)
             pygame.draw.rect(self.ecran, couleur, rect,
                              width=3 if actif else 1, border_radius=8)
-            if theme != "prairie" and type_case in (SOL, PLATEFORME, PIC):
+            if type_case in (SOL, PLATEFORME, PIC):
                 dessiner_bloc_theme(self.ecran, rect.inflate(-7, -7), type_case, theme,
                                     materiaux=self.atmosphere.materials)
             else:
-                dessiner_icone_palette(self.ecran, rect, type_case)
+                dessiner_icone_palette(
+                    self.ecran, rect, type_case, theme, self.atmosphere.materials
+                )
         etiquettes_actions = ("SAUVER", "CODE", "TEST", "ACCUEIL")
         for rect, etiquette, couleur in zip(
-                self.actions_editeur, etiquettes_actions, (CYAN, JAUNE, ROUGE)):
+                self.actions_editeur, etiquettes_actions, (CYAN, JAUNE, ROUGE, GRIS)):
             dessiner_bouton(self.ecran, rect, etiquette, self.police_petite,
                             rect.collidepoint(souris), couleur)
+
+        colonnes, rangees = dimensions_niveau(self.niveau)
+        dessiner_bouton(
+            self.ecran, self.bouton_taille, f"TAILLE {colonnes} x {rangees}",
+            self.police_petite, self.bouton_taille.collidepoint(souris), CYAN,
+        )
 
         dessiner_bouton(
             self.ecran, self.bouton_theme,
@@ -2765,17 +3438,22 @@ class JeuDefi:
                 self.ecran, theme, self.camera_editeur * .16, zone_carte
             )
         cases = self.niveau["tiles"]
+        ancien_clip = self.ecran.get_clip()
+        self.ecran.set_clip(zone_carte)
         debut_colonne = max(0, self.camera_editeur // TAILLE_CASE)
-        fin_colonne = min(COLONNES_NIVEAU,
+        fin_colonne = min(colonnes,
                           (self.camera_editeur + LARGEUR) // TAILLE_CASE + 2)
-        for ligne in range(LIGNES_NIVEAU):
+        debut_ligne = max(0, self.camera_editeur_y // TAILLE_CASE)
+        fin_ligne = min(rangees,
+                        (self.camera_editeur_y + zone_carte.height) // TAILLE_CASE + 2)
+        for ligne in range(debut_ligne, fin_ligne):
             for colonne in range(debut_colonne, fin_colonne):
                 x = 24 + colonne * TAILLE_CASE - self.camera_editeur
-                y = int(DEBUT_CARTE.y) + ligne * TAILLE_CASE
+                y = int(DEBUT_CARTE.y) + ligne * TAILLE_CASE - self.camera_editeur_y
                 rect = pygame.Rect(x, y, TAILLE_CASE, TAILLE_CASE)
                 pygame.draw.rect(self.ecran, (34, 45, 67), rect, width=1)
                 type_case = cases[ligne][colonne]
-                if theme != "prairie" and type_case in (SOL, PLATEFORME, PIC):
+                if type_case in (SOL, PLATEFORME, PIC):
                     dessiner_bloc_theme(self.ecran, rect.inflate(-2, -2), type_case,
                                         theme, colonne + ligne * 3, self.atmosphere.materials)
                 elif type_case == SOL:
@@ -2819,19 +3497,35 @@ class JeuDefi:
                     dessiner_icone_palette(self.ecran, rect.inflate(-2, -2), type_case)
                 elif type_case == COEUR:
                     dessiner_coeur(self.ecran, rect.center, 22)
-        for colonne, ligne in self.niveau.get("monstres", []):
-            x = 24 + colonne * TAILLE_CASE - self.camera_editeur + 7
+                elif type_case == TOBOGGAN:
+                    dessiner_toboggan(self.ecran, rect.inflate(-2, -2))
+        for definition in self.niveau.get("monstres", []):
+            colonne, ligne = definition[:2]
+            type_monstre = definition[2] if len(definition) == 3 else MONSTRE_TRAQUEUR
+            x = 24 + colonne * TAILLE_CASE - self.camera_editeur + 3
             ligne_sol = ligne_support_monstre(self.niveau, colonne, ligne)
-            y = (int(DEBUT_CARTE.y) + ligne_sol * TAILLE_CASE - 34
+            y = (int(DEBUT_CARTE.y) + ligne_sol * TAILLE_CASE - HAUTEUR_MONSTRE
                  if ligne_sol is not None and ligne_sol > 0
-                 else int(DEBUT_CARTE.y) + ligne * TAILLE_CASE + 8)
-            dessiner_monstre(self.ecran, pygame.Rect(x, y, 34, 34))
+                 else int(DEBUT_CARTE.y) + ligne * TAILLE_CASE + 4) - self.camera_editeur_y
+            dessiner_monstre(
+                self.ecran, pygame.Rect(x, y, LARGEUR_MONSTRE, HAUTEUR_MONSTRE),
+                type_monstre,
+            )
         for nom, outil in (("start", OUTIL_DEPART), ("goal", OUTIL_ARRIVEE)):
             colonne, ligne = self.niveau[nom]
-            x = 24 + colonne * TAILLE_CASE - self.camera_editeur + TAILLE_CASE // 2
-            y = int(DEBUT_CARTE.y) + ligne * TAILLE_CASE + TAILLE_CASE // 2
-            icone = pygame.Rect(round(x - 23), y - 21, 46, 42)
-            dessiner_icone_palette(self.ecran, icone, outil)
+            x = 24 + colonne * TAILLE_CASE - self.camera_editeur
+            y = int(DEBUT_CARTE.y) + ligne * TAILLE_CASE - self.camera_editeur_y
+            bloc = pygame.Rect(x, y, TAILLE_CASE, TAILLE_CASE)
+            dessiner_bloc_marqueur(
+                self.ecran, bloc, outil, theme, colonne + ligne * 3,
+                self.atmosphere.materials,
+            )
+        self.ecran.set_clip(ancien_clip)
+        for direction, etiquette in (("gauche", "<"), ("droite", ">"),
+                                     ("haut", "^"), ("bas", "v")):
+            rect = self.boutons_navigation_editeur[direction]
+            dessiner_bouton(self.ecran, rect, etiquette, self.police,
+                            rect.collidepoint(souris), CYAN)
         if self.erreur:
             texte(self.ecran, self.police_petite, self.erreur,
                   (LARGEUR // 2, 690),
@@ -2840,9 +3534,51 @@ class JeuDefi:
         else:
             texte(
                 self.ecran, self.police_petite,
-                "Molette ou A/D : defiler | Outils 0-9, M | Ctrl+Z/Y",
+                "Molette/W-S : haut-bas | A/D ou Maj+molette : gauche-droite | Dep./Arrivee : placer",
                 (LARGEUR // 2, 690), GRIS, True,
             )
+        if self.dialogue_taille:
+            voile = pygame.Surface((LARGEUR, HAUTEUR), pygame.SRCALPHA)
+            voile.fill((4, 8, 20, 205))
+            self.ecran.blit(voile, (0, 0))
+            pygame.draw.rect(self.ecran, (27, 39, 59), self.boite_taille,
+                             border_radius=18)
+            pygame.draw.rect(self.ecran, CYAN, self.boite_taille,
+                             width=2, border_radius=18)
+            texte(self.ecran, self.police_moyenne, "TAILLE DU NIVEAU",
+                  (LARGEUR // 2, 230), BLANC, True)
+            texte(self.ecran, self.police, "Largeur",
+                  (300, self.bouton_colonnes_moins.centery), GRIS, True)
+            texte(self.ecran, self.police, "Hauteur",
+                  (300, self.bouton_rangees_moins.centery), GRIS, True)
+            for rect, etiquette in (
+                    (self.bouton_colonnes_moins10, "-10"),
+                    (self.bouton_colonnes_moins, "-"),
+                    (self.bouton_colonnes_plus, "+"),
+                    (self.bouton_colonnes_plus10, "+10"),
+                    (self.bouton_rangees_moins10, "-10"),
+                    (self.bouton_rangees_moins, "-"),
+                    (self.bouton_rangees_plus, "+"),
+                    (self.bouton_rangees_plus10, "+10")):
+                dessiner_bouton(self.ecran, rect, etiquette, self.police,
+                                rect.collidepoint(souris), CYAN)
+            texte(self.ecran, self.police_moyenne, str(self.choix_colonnes),
+                  (500, self.bouton_colonnes_moins.centery), BLANC, True)
+            texte(self.ecran, self.police_moyenne, str(self.choix_rangees),
+                  (500, self.bouton_rangees_moins.centery), BLANC, True)
+            dessiner_bouton(
+                self.ecran, self.bouton_taille_appliquer, "APPLIQUER",
+                self.police_petite,
+                self.bouton_taille_appliquer.collidepoint(souris), VERT,
+            )
+            dessiner_bouton(
+                self.ecran, self.bouton_taille_annuler, "ANNULER",
+                self.police_petite,
+                self.bouton_taille_annuler.collidepoint(souris), GRIS,
+            )
+            texte(self.ecran, self.police_petite,
+                  "Largeur 8-200, hauteur 6-50 | -10/+10 rapides, -/+ precis",
+                  (LARGEUR // 2, 408), GRIS, True)
 
     def dessiner_partage(self) -> None:
         self.dessiner_fond()
@@ -2853,10 +3589,17 @@ class JeuDefi:
         max_par_ligne = 75
         lignes = [self.partage_code[index:index + max_par_ligne]
                   for index in range(0, len(self.partage_code), max_par_ligne)]
-        hauteur_depart = 240 - max(0, len(lignes) - 2) * 10
-        for index, ligne in enumerate(lignes[:8]):
-            texte(self.ecran, self.police_petite, ligne,
-                  (LARGEUR // 2, hauteur_depart + index * 27), BLANC, True)
+        if len(self.partage_code) <= max_par_ligne * 8:
+            hauteur_depart = 240 - max(0, len(lignes) - 2) * 10
+            for index, ligne in enumerate(lignes):
+                texte(self.ecran, self.police_petite, ligne,
+                      (LARGEUR // 2, hauteur_depart + index * 27), BLANC, True)
+        else:
+            texte(self.ecran, self.police, f"Code long ({len(self.partage_code)} caracteres)",
+                  (LARGEUR // 2, 285), BLANC, True)
+            texte(self.ecran, self.police_petite,
+                  "Utilise le bouton COPIER LE CODE pour partager ce grand parcours.",
+                  (LARGEUR // 2, 330), GRIS, True)
         souris = pygame.mouse.get_pos()
         dessiner_bouton(self.ecran, self.bouton_copier, "COPIER LE CODE",
                         self.police, self.bouton_copier.collidepoint(souris))
@@ -3090,24 +3833,27 @@ class JeuDefi:
         pygame.draw.rect(self.ecran, couleur_cadre,
                          (24, 100, LARGEUR - 48, HAUTEUR - 124),
                          width=1, border_radius=18)
-        for ligne in range(LIGNES_NIVEAU):
+        ancien_clip = self.ecran.get_clip()
+        self.ecran.set_clip(ZONE_JEU)
+        _, rangees_niveau = dimensions_niveau(self.niveau)
+        debut_ligne = max(0, int(self.camera_parcours_y // TAILLE_CASE))
+        fin_ligne = min(
+            rangees_niveau,
+            int((self.camera_parcours_y + ZONE_JEU.height) // TAILLE_CASE) + 2,
+        )
+        for ligne in range(debut_ligne, fin_ligne):
             for colonne, type_case in enumerate(self.niveau["tiles"][ligne]):
                 if (type_case == 0
                         or (type_case == GEMME and (colonne, ligne) in self.gemmes_collectees)
                         or (type_case == COEUR and (colonne, ligne) not in self.coeurs_restants)):
                     continue
                 x = round(24 + colonne * TAILLE_CASE - self.camera_parcours)
-                y = int(DEBUT_CARTE.y) + ligne * TAILLE_CASE
+                y = int(DEBUT_CARTE.y) + ligne * TAILLE_CASE - round(self.camera_parcours_y)
                 if x < -TAILLE_CASE or x > LARGEUR:
                     continue
                 rect = pygame.Rect(x, y, TAILLE_CASE, TAILLE_CASE)
-                if theme != "prairie" and type_case in (SOL, PLATEFORME, PIC):
-                    if type_case == SOL:
-                        bloc = rect.inflate(-2, -2)
-                    elif type_case == PLATEFORME:
-                        bloc = pygame.Rect(x + 2, y + 8, TAILLE_CASE - 4, 25)
-                    else:
-                        bloc = rect
+                if type_case in (SOL, PLATEFORME, PIC):
+                    bloc = rect.inflate(-2, -2)
                     dessiner_bloc_theme(self.ecran, bloc, type_case, theme,
                                         colonne + ligne * 3,
                                         self.atmosphere.materials)
@@ -3175,32 +3921,42 @@ class JeuDefi:
                     ], 1)
                 elif type_case == COEUR:
                     dessiner_coeur(self.ecran, (x + 24, y + 24), 22)
+                elif type_case == TOBOGGAN:
+                    dessiner_toboggan(self.ecran, rect.inflate(-2, -2))
         for monstre in self.monstres:
-            x = round(monstre["x"] - self.camera_parcours)
-            y = round(monstre["y"])
-            if -34 <= x <= LARGEUR:
-                dessiner_monstre(self.ecran, pygame.Rect(x, y, 34, 34))
+            x = round(monstre["x"] - self.camera_parcours) - (LARGEUR_MONSTRE - 34) // 2
+            y = round(monstre["y"] - self.camera_parcours_y) - (HAUTEUR_MONSTRE - 34)
+            if -LARGEUR_MONSTRE <= x <= LARGEUR:
+                dessiner_monstre(
+                    self.ecran, pygame.Rect(x, y, LARGEUR_MONSTRE, HAUTEUR_MONSTRE),
+                    int(monstre.get("type", MONSTRE_TRAQUEUR)),
+                    pygame.time.get_ticks() / 1000.0, float(monstre["direction"]),
+                )
         depart = self.niveau["start"]
         arrivee = self.niveau["goal"]
-        depart_x = round(24 + depart[0] * TAILLE_CASE - self.camera_parcours + TAILLE_CASE // 2)
-        depart_y = int(DEBUT_CARTE.y) + depart[1] * TAILLE_CASE + TAILLE_CASE // 2
-        pygame.draw.circle(self.ecran, VERT, (depart_x, depart_y), 13)
-        texte(self.ecran, self.police_petite, "D", (depart_x, depart_y), FOND, True)
-        arrivee_x = round(24 + arrivee[0] * TAILLE_CASE - self.camera_parcours + TAILLE_CASE // 2)
-        arrivee_base = int(DEBUT_CARTE.y) + arrivee[1] * TAILLE_CASE + TAILLE_CASE - 2
-        pygame.draw.ellipse(self.ecran, (16, 24, 35),
-                            (arrivee_x - 13, arrivee_base - 1, 26, 7))
-        pygame.draw.line(self.ecran, (218, 224, 221),
-                         (arrivee_x, arrivee_base - 3), (arrivee_x, arrivee_base - 49), 4)
-        pygame.draw.circle(self.ecran, JAUNE, (arrivee_x, arrivee_base - 50), 4)
-        pygame.draw.polygon(self.ecran, (238, 174, 66), [
-            (arrivee_x + 2, arrivee_base - 46),
-            (arrivee_x + 26, arrivee_base - 39),
-            (arrivee_x + 3, arrivee_base - 29),
-        ])
-        pygame.draw.line(self.ecran, (255, 225, 142),
-                         (arrivee_x + 4, arrivee_base - 43),
-                         (arrivee_x + 19, arrivee_base - 39), 2)
+        for point, outil in ((depart, OUTIL_DEPART), (arrivee, OUTIL_ARRIVEE)):
+            x = round(24 + point[0] * TAILLE_CASE - self.camera_parcours)
+            y = (int(DEBUT_CARTE.y) + point[1] * TAILLE_CASE
+                 - round(self.camera_parcours_y))
+            bloc = pygame.Rect(x, y, TAILLE_CASE, TAILLE_CASE)
+            dessiner_bloc_marqueur(
+                self.ecran, bloc, outil, theme, point[0] + point[1] * 3,
+                self.atmosphere.materials,
+            )
+        decalage_y = round(self.camera_parcours_y)
+        for particule in self.particules:
+            position = particule["position"]
+            pygame.draw.circle(self.ecran, particule["couleur"],
+                               (round(position.x - self.camera_parcours),
+                                round(position.y - self.camera_parcours_y)), 3)
+        if self.invulnerable <= 0 or int(self.temps_parcours * 12) % 2 == 0:
+            joueur_ecran = self.rect_joueur.move(
+                -round(self.camera_parcours), -decalage_y
+            )
+            dessiner_personnage_plateforme(
+                self.ecran, joueur_ecran, self.temps_parcours, self.vitesse_x
+            )
+        self.ecran.set_clip(ancien_clip)
         self.atmosphere.draw_vignette(self.ecran, .24)
         titre = (f"CARTE DE BASE - NIVEAU {self.numero_niveau_base}/{NIVEAUX_CARTE_BASE}"
                  if self.campagne_base else f"PARCOURS - {NOMS_THEMES[theme]}")
@@ -3225,16 +3981,6 @@ class JeuDefi:
         for index in range(5):
             pygame.draw.circle(self.ecran, ROUGE if index < self.vies else (62, 68, 86),
                                (LARGEUR - 165 + index * 27, 85), 8)
-        for particule in self.particules:
-            position = particule["position"]
-            pygame.draw.circle(self.ecran, particule["couleur"],
-                               (round(position.x - self.camera_parcours),
-                                round(position.y)), 3)
-        if self.invulnerable <= 0 or int(self.temps_parcours * 12) % 2 == 0:
-            joueur_ecran = self.rect_joueur.move(-round(self.camera_parcours), 0)
-            dessiner_personnage_plateforme(
-                self.ecran, joueur_ecran, self.temps_parcours, self.vitesse_x
-            )
         if self.paused:
             voile = pygame.Surface((LARGEUR, HAUTEUR), pygame.SRCALPHA)
             voile.fill((5, 9, 20, 205))
@@ -3363,4 +4109,4 @@ class JeuDefi:
 
 
 if __name__ == "__main__":
-    JeuDefi().executer() 
+    JeuDefi().executer()

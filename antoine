@@ -1,0 +1,13 @@
+
+
+import pygame
+
+
+def new_func():
+    return pygame.draw
+
+class ecran:
+    ...
+
+new_func().circle(new_func(ecran()), (255, 220, 0), (100, 100), 30) 
+
